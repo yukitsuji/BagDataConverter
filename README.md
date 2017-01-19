@@ -10,7 +10,10 @@ Bag Data Converter  from Image Topic to RGB Image, from PointClound2 to PCD
 ```bash
 cd ~
 git clone https://github.com/yukitsuji/BagDataConverter.git
-cd ~/BagDataConverter  
+cd ~/BagDataConverter/src
+catkin_init_workspace
+cd ..
+catkin_make -DCMAKE_BUILD_TYPE=Release
 ./run  
 ```
 # Note
