@@ -8,6 +8,9 @@ Bag Data Converter  from Image Topic to RGB Image, from PointClound2 to PCD
 # How To Run Code
 
 ```bash
+# After setting like Autoware
+sudo apt-get install ros-indigo-velodyne
+
 cd ~
 git clone https://github.com/yukitsuji/BagDataConverter.git
 cd ~/BagDataConverter/src
