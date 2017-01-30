@@ -19,6 +19,7 @@ class InsideDesign(BaseFrame):
         self.sizer_79_staticbox = wx.StaticBox(self.tab_simulation, wx.ID_ANY, "")
         self.button_confirm_topics = wx.Button(self.tab_simulation, wx.ID_ANY, _("confirm"))
 
+
         ###########################
         ##    scroll module
         ###########################
@@ -30,12 +31,18 @@ class InsideDesign(BaseFrame):
         ##   For Select Tab
         ###############################################
         self.tab_select = wx.Panel(self.notebook_1, wx.ID_ANY)
-        #self.sizer_select_topics = wx.BoxSizer(wx.VERTICAL)
-        #self.sizer_select_box = wx.BoxSizer(wx.HORIZONTAL)
         self.sizer_select_box = wx.BoxSizer(wx.VERTICAL)
         self.sizer_select_topics = wx.BoxSizer(wx.VERTICAL)
         self.select_scroll =  wx.ScrolledWindow(self.tab_select, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 
+        ################################
+        ##   For Depth Tab
+        ################################
+        self.tab_depth = wx.Panel(self.notebook_1, wx.ID_ANY)
+        self.sizer_depth_box = wx.BoxSizer(wx.VERTICAL)
+        self.sizer_depth_topics = wx.BoxSizer(wx.VERTICAL)
+        self.depth_scroll = wx.ScrolledWindow(self.tab_depth, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
+        # self.panel_rosbag_play2 = wx.Panel(self.tab_depth, wx.ID_ANY)
         ########################
         ## play stop pause bar area
         ########################
@@ -56,6 +63,23 @@ class InsideDesign(BaseFrame):
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay, self.button_stop_rosbag_play)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay, self.button_pause_rosbag_play)
 
+        self.button_play_rosbag_play2 = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("Start Conversion"))
+        self.button_stop_rosbag_play2 = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("Stop"))
+        self.button_pause_rosbag_play2 = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("Pause"))
+        self.label_rosbag_play_bar2 = wx.StaticText(self.tab_depth, wx.ID_ANY, _("Playing ... 82 %"))
+        self.label_rosbag_play_pos2 = wx.StaticText(self.tab_depth, wx.ID_ANY, "")
+        self.static_line_2 = wx.StaticLine(self.tab_depth, wx.ID_ANY)
+        self.label_rosbag_play_total2 = wx.StaticText(self.tab_depth, wx.ID_ANY, "")
+        self.button_stop_rosbag_play2.Enable(False)
+        self.button_stop_rosbag_play2.SetValue(1)
+        self.button_pause_rosbag_play2.Enable(False)
+        self.label_rosbag_play_pos2.SetMinSize((32, 17))
+        self.label_rosbag_play_total2.SetMinSize((32, 17))
+
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay2, self.button_play_rosbag_play2)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay2, self.button_stop_rosbag_play2)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay2, self.button_pause_rosbag_play2)
+
         self.__set_properties()
 
         self.Bind(wx.EVT_BUTTON, self.OnGetConfirmTopics, self.button_confirm_topics)
@@ -64,6 +88,7 @@ class InsideDesign(BaseFrame):
         super(InsideDesign, self).set_properties()
         self.panel_5.SetScrollRate(10, 10)
         self.select_scroll.SetScrollRate(10, 10)
+        self.depth_scroll.SetScrollRate(10, 10)
 
     def _do_layout(self):
         self.sizer_1 = wx.BoxSizer(wx.VERTICAL)
@@ -80,6 +105,7 @@ class InsideDesign(BaseFrame):
         self.sizer_79_staticbox.Lower()
         sizer_79 = wx.StaticBoxSizer(self.sizer_79_staticbox, wx.VERTICAL)
         sizer_79.Add(self.panel_rosbag_play, 1, wx.ALL | wx.EXPAND, 4)
+        # sizer_79.Add(self.panel_rosbag_play2, 1, wx.ALL | wx.EXPAND, 4)
         sizer_79.Add(self.button_confirm_topics, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
         sizer_78.Add(sizer_79, 0, wx.ALL | wx.EXPAND, 4)
 
@@ -103,6 +129,23 @@ class InsideDesign(BaseFrame):
         self.sizer_select_box.Add(self.select_scroll, 1, wx.EXPAND, 0)
         self.sizer_select_box.Add(sizer_play_stop_pause_bar_area, 0, wx.ALL | wx.EXPAND, 4)
 
+        sizer_play_stop_pause_bar_area2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_play_bar_area2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_inside_play_bar_area2 = wx.BoxSizer(wx.VERTICAL)
+        sizer_inside_play_stop_pause2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_inside_play_stop_pause2.Add(self.button_play_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_inside_play_stop_pause2.Add(self.button_stop_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_inside_play_stop_pause2.Add(self.button_pause_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_play_stop_pause_bar_area2.Add(sizer_inside_play_stop_pause2, 1, wx.EXPAND, 0)
+        sizer_play_bar_area2.Add(self.label_rosbag_play_bar2, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_inside_play_bar_area2.Add(self.label_rosbag_play_pos2, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL, 0)
+        sizer_inside_play_bar_area2.Add(self.static_line_2, 0, wx.EXPAND, 0)
+        sizer_inside_play_bar_area2.Add(self.label_rosbag_play_total2, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL, 0)
+        sizer_play_bar_area2.Add(sizer_inside_play_bar_area2, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_play_stop_pause_bar_area2.Add(sizer_play_bar_area2, 1, wx.EXPAND, 0)
+        self.sizer_depth_box.Add(self.depth_scroll, 1, wx.EXPAND, 0)
+        self.sizer_depth_box.Add(sizer_play_stop_pause_bar_area2, 0, wx.ALL | wx.EXPAND, 4)
+
         ###############################
         # only scroll window    self.panel_5
         ###############################
@@ -115,10 +158,13 @@ class InsideDesign(BaseFrame):
         self.panel_3 = wx.ScrolledWindow(self.tab_status, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
         self.label_top_cmd = wx.StaticText(self.panel_3, wx.ID_ANY, "")
 
+
         self.tab_simulation.SetSizer(sizer_78)
         self.tab_select.SetSizer(self.sizer_select_box)
+        self.tab_depth.SetSizer(self.sizer_depth_box)
         self.notebook_1.AddPage(self.tab_simulation, _("Input Bag File"))
-        self.notebook_1.AddPage(self.tab_select, _("Select Topics"))
+        self.notebook_1.AddPage(self.tab_select, _("Save object from Topics"))
+        self.notebook_1.AddPage(self.tab_depth, _("Save Depth from Image and Lidar"))
         self.sizer_1.Add(self.notebook_1, 1, wx.EXPAND, 0)
 
         sizer_29.Add((0, 100), 0, wx.EXPAND, 0) # width line
@@ -161,6 +207,11 @@ class InsideDesign(BaseFrame):
     def OnRosbagPlay(self, event):  # wxGlade: MyFrame.<event_handler>
     	print "Event handler 'OnRosbagPlay' not implemented!"
     	event.Skip()
+
+    def OnRosbagPlay2(self, event):  # wxGlade: MyFrame.<event_handler>
+    	print "Event handler 'OnRosbagPlay' not implemented!"
+    	event.Skip()
+
 
     def OnFtrace(self, event):  # wxGlade: MyFrame.<event_handler>
     	print "Event handler 'OnFtrace' not implemented!"

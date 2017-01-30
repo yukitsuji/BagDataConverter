@@ -14,6 +14,7 @@ save_path = None
 
 def img_loader_1(image_msg):
     bridge = CvBridge()
+    rospy.loginfo(image_msg.encoding)
     camera_img_1 = bridge.imgmsg_to_cv2(image_msg, "bgr8")
     timestamp = image_msg.header.stamp.secs + ((image_msg.header.stamp.nsecs + 0.0) / 1000000000)
     save_image(camera_img_1, timestamp, save_path, '1')
