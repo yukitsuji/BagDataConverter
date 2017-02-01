@@ -67,7 +67,7 @@ class Final(InsideDesign):
         self.label_rosbag_play_bar2.Destroy()
         self.label_rosbag_play_bar2 = BarLabel(self.tab_depth, '  Playing...  ')
         self.label_rosbag_play_bar2.Enable(False)
-
+        self.play = 0
         self.file_path = ""
         self.select = 0
         self.topic_type = None
@@ -78,6 +78,14 @@ class Final(InsideDesign):
         dic = self.load_yaml('tab_input.yaml')
         self.add_params(dic.get('params', []))
         self.setup_buttons(dic.get('buttons'), self.simulation_cmd)
+        self.proc = 0
+        self.output_url = ""
+        self.calib_url = ""
+        self.depth_flag = False
+        self.selected_img = {}
+        self.selected_pcd = {}
+        self.image_for_depth = None
+        self.pointcloud_for_depth = None
         #
         # self.depth_cmd = {}
         # self.all_cmd_dics.append(self.depth_cmd)
@@ -98,7 +106,7 @@ class Final(InsideDesign):
             print("Please Set Bag File")
 
         self.topic_and_type_list = None
-        self.select_topic_delete_list = []
+        self.select_topic_delete_dic = {0:[], 1:[]}
         self.selected_topic_dic = {}
         self.select_created_topic = {}
         self.selected_topic_dic2 = {}
@@ -158,6 +166,110 @@ class Final(InsideDesign):
         icon.CopyFromBitmap(bm)
         self.SetIcon(icon)
 
+    def OnRosbagPlay2(self, event):
+        push = event.GetEventObject()
+        btn = self.button_play_rosbag_play
+        tc = self.obj_to_varpanel_tc(btn, 'file')
+        if tc.GetValue():
+            if push == self.button_play_rosbag_play2:
+                f = "self.rosbag_play_progress_bar2"
+                f = eval_if_str(self, f)
+                f = f if f else self.log_th
+                out = subprocess.PIPE if f else None
+                err = subprocess.STDOUT if f else None
+                args =  ['rosbag', 'play', '--clock', tc.GetValue()]
+                proc = psutil.Popen(args, stdin=subprocess.PIPE, stdout=out, stderr=err)
+                self.all_procs.append(proc)
+                self.proc = proc
+                thinf = th_start(f, {'file':proc.stdout})
+                self.push = push
+                self.button_pause_rosbag_play2.Enable()
+                self.button_stop_rosbag_play2.Enable()
+                self.button_play_rosbag_play2.Disable()
+                self.button_play_rosbag_play.Disable()
+                self.button_play_rosbag_play2.SetBackgroundColour("#E0E0F0")
+                self.button_stop_rosbag_play2.SetBackgroundColour(wx.NullColour)
+                self.button_stop_rosbag_play2.SetForegroundColour(wx.NullColour)
+                self.button_pause_rosbag_play2.SetForegroundColour(wx.NullColour)
+                self.button_stop_rosbag_play2.SetValue(0)
+                self.button_pause_rosbag_play2.SetValue(0)
+                self.button_confirm_topics.Disable()
+                self.button_confirm_depth.Disable()
+                print("Play")
+            elif push == self.button_pause_rosbag_play2:
+                if self.proc:
+                    self.proc.stdin.write(' ')
+                self.button_stop_rosbag_play2.Enable()
+                self.button_pause_rosbag_play2.Enable()
+                print("Pause")
+            elif push == self.button_stop_rosbag_play2:
+                # self.proc = self.launch_kill_proc2(self.button_play_rosbag_play2, self.cmd_dic)
+                self.button_play_rosbag_play2.Enable()
+                # self.button_play_rosbag_play2.SetCo
+                self.button_play_rosbag_play.Enable()
+                self.button_stop_rosbag_play2.Disable()
+                self.button_pause_rosbag_play2.Disable()
+                self.button_play_rosbag_play2.SetValue(0)
+                self.button_stop_rosbag_play2.SetValue(0)
+                self.button_pause_rosbag_play2.SetValue(0)
+                self.button_confirm_depth.Enable()
+                self.button_confirm_topics.Enable()
+                dic = { (True,True):('#F9F9F8','#8B8BB9'), (True,False):('#F9F9F8','#E0E0F0') }
+            	# (fcol, bcol) = dic.get(key, (wx.NullColour, wx.NullColour))
+            	self.button_play_rosbag_play2.SetBackgroundColour(wx.NullColour)
+                self.button_stop_rosbag_play2.SetBackgroundColour("#E0E0F0")
+                self.button_pause_rosbag_play2.SetBackgroundColour(wx.NullColour)
+                self.button_play_rosbag_play2.SetForegroundColour(wx.NullColour)
+                print("Stop")
+                sigint = 'SIGTERM'
+                if True:
+                	terminate_children(self.proc, sigint)
+                terminate(self.proc, sigint)
+                self.proc.wait()
+                # del self.cmd_dic[self.button_play_rosbag_play2]
+                if self.proc in self.all_procs:
+                	self.all_procs.remove(self.proc)
+        else:
+            wx.MessageBox("Please Set Bag File")
+
+    def rosbag_play_progress_bar2(self, file, ev):
+    	while not ev.wait(0):
+    		s = self.stdout_file_search(file, 'Duration:')
+    		if not s:
+    			break
+    		lst = s.split()
+    		pos = str_to_float(lst[0])
+    		# lst[1] is '/'
+    		total = str_to_float(lst[2])
+    		if total == 0:
+    			continue
+    		prg = int(100 * pos / total + 0.5)
+    		pos = str(int(pos))
+    		total = str(int(total))
+
+    		wx.CallAfter(self.label_rosbag_play_bar2.set, prg)
+    		wx.CallAfter(self.label_rosbag_play_pos2.SetLabel, pos)
+    		wx.CallAfter(self.label_rosbag_play_total2.SetLabel, total)
+    	wx.CallAfter(self.label_rosbag_play_bar2.clear)
+    	wx.CallAfter(self.label_rosbag_play_pos2.SetLabel, '')
+    	wx.CallAfter(self.label_rosbag_play_total2.SetLabel, '')
+
+    def stdout_file_search(self, file, k):
+    	s = ''
+    	while True:
+    		c = file.read(1)
+    		if not c:
+    			return None
+    		if c != '\r' and c != '\n':
+    			s += c
+    			continue
+    		s = s.strip()
+    		if k in s:
+    			break
+    		s = ''
+    	i = s.find(k) + len(k)
+    	return s[i:]
+
     def OnSelectTopicCheckbox(self, event):
         push = event.GetEventObject()
         cmd = None
@@ -208,9 +320,44 @@ class Final(InsideDesign):
             val = self.selected_topic_dic.pop(push)
             print("Kill '%s'" % self.cmd_dic[push][0])
 
+    def OnSelectPointCheckbox(self, event):
+        push = event.GetEventObject()
+        if push.GetValue():
+            if self.selected_pcd != {}:
+                for k in self.selected_pcd.keys():
+                    if k != push:
+                        k.SetValue(0)
+            self.pointcloud_for_depth = self.select_created_topic[push]
+            self.selected_pcd[push] = self.pointcloud_for_depth
+        else:
+            push.SetValue(0)
+            del self.selected_pcd[push]
+            self.pointcloud_for_depth = None
+
+
+    def OnSelectImageCheckbox(self, event):
+        push = event.GetEventObject()
+
+        if push.GetValue():
+            if self.selected_img != {}:
+                for k in self.selected_img.keys():
+                    if k != push:
+                        k.SetValue(0)
+            self.image_for_depth = self.select_created_topic[push]
+            self.selected_img[push] = self.image_for_depth
+        else:
+            push.SetValue(0)
+            del self.selected_img[push]
+            self.image_for_depth = None
+
     def OnGetConfirmTopics(self, event):
+        if self.depth_flag:
+            self.button_confirm_depth.SetValue(0)
+            self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
+            self.button_confirm_depth.SetForegroundColour(wx.NullColour)
+            self.launch_kill_proc2(self.button_confirm_depth, self.cmd_dic)
+        self.button_confirm_depth.Enable()
         self.get_confirm_topic_list()
-        self.get_depth_topic_list()
 
     def OnConvertVelodyne(self, event):
         push = event.GetEventObject()
@@ -234,7 +381,7 @@ class Final(InsideDesign):
                 self.cmd_dic[push] = (cmd, None)
                 self.launch_kill_proc2(push, self.cmd_dic)
                 self.obj.Enable()
-                self.abcd.Enable()
+                self.file_url.Enable()
 
                 print("launch '%s'" % self.cmd_dic[push][0])
             else:
@@ -246,7 +393,7 @@ class Final(InsideDesign):
             print("Kill '%s'" % self.cmd_dic[push][0])
             push.SetValue(0)
             self.obj.Disable()
-            self.abcd.Disable()
+            self.file_url.Disable()
 
     def OnGetLidar(self, event):
         dialog = DetailDialog(self)
@@ -259,30 +406,57 @@ class Final(InsideDesign):
             else:
                 self.objx.Disable()
                 self.obj.Disable()
-                self.abcd.Disable()
+                self.file_url.Disable()
 
-    def get_depth_topic_list(self):
+    def get_bag_url(self):
         btn = self.button_play_rosbag_play
         tc = self.obj_to_varpanel_tc(btn, 'file')
+        return tc.GetValue()
+
+    def create_url_panel(self, sss, index, topic, topic_type, obj, strings, file_type="dir", comment='Please Set Output Directory'):
+        button_input_name = "button_input" + str(index)
+        button_input_var_name = "button_input_var" + str(index)
+        dic = {
+            'buttons' : {button_input_name: {'gui': {'panel': strings},'param': button_input_var_name}},
+            'params' : [
+                {
+                    'no_save_vars' : ['file'],
+                    'name': button_input_var_name,
+                    'vars': [{'kind': 'path', 'name': 'file', 'path_type' : file_type, 'v': comment}]
+                }]}
+        self.add_params(dic.get('params', []))
+        #################
+        ##  set URL & param bar
+        #################
+        self.setup_buttons(dic.get('buttons'), self.simulation_cmd)
+
+        button_var = getattr(self, "button_" + button_input_name)
+        file_url = self.obj_to_varpanel_tc(button_var, 'file')
+        if self.topic_type == "velodyne_msgs/VelodyneScan":
+            self.file_url = file_url
+            self.file_url.Disable()
+
+        if file_url:
+            topic_info = {}
+            topic_info['path'] = file_url.GetValue()
+            topic_info['topic'] = topic
+            topic_info['topic_type'] = topic_type
+            topic_info['name'] = button_input_name
+            self.select_created_topic[obj] = topic_info
+
+    def get_all_topic(self):
+        bag_url = self.get_bag_url()
         self.select_created_topic = {}
 
-        if tc.GetValue():
-            self.topic_and_type_list = get_type_and_topic(tc.GetValue())
-            szr = self.sizer_depth_topics
-            sss = self.depth_scroll
-            sssb = self.sizer_depth_box
-            #sssb.Remove(sss)
+        if bag_url:
+            self.topic_and_type_list = get_type_and_topic(bag_url)
+            szr = self.sizer_select_topics
+            sss = self.select_scroll
+            sssb = self.sizer_select_box
             if self.selected_topic_dic:
-                for k, val in self.selected_topic_dic.items():
-                    self.launch_kill_proc2(k, self.cmd_dic)
-                    val = self.selected_topic_dic.pop(k)
-                    print("Kill '%s'" % self.cmd_dic[k][0])
+                self.delete_launch()
 
-            for topic_del in self.select_topic_delete_list:
-                szr.Hide(topic_del)
-                szr.Remove(topic_del)
-                self.select_topic_delete_list.pop(0)
-
+            self.delete_topic_panel(szr, num=0)
 
             topic_conversion_dic = {
                 'sensor_msgs/Image' : "RGB Image",
@@ -335,40 +509,8 @@ class Final(InsideDesign):
                     font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
                     obj2.SetFont(font)
 
-
                     self.panel3 = wx.Panel(sss, wx.ID_ANY)
-                    button_input_name = "button_input" + str(i+20)
-                    button_input_var_name = "button_input_var" + str(i+20)
-
-                    dic = {
-                        'buttons' : {button_input_name: {'gui': {'panel': 'self.panel2'},'param': button_input_var_name}},
-                        'params' : [
-                            {
-                                'no_save_vars' : ['file'],
-                                'name': button_input_var_name,
-                                'vars': [{'kind': 'path', 'name': 'file', 'path_type' : 'dir', 'v': 'Please Set Output Directory'}]
-                            }
-                        ]
-                    }
-
-                    self.add_params(dic.get('params', []))
-                    #################
-                    ##  set URL & param bar
-                    #################
-                    self.setup_buttons(dic.get('buttons'), self.simulation_cmd)
-
-                    abc = getattr(self, "button_" + button_input_name)
-                    abcd = self.obj_to_varpanel_tc(abc, 'file')
-                    if self.topic_type == "velodyne_msgs/VelodyneScan":
-                        self.abcd = abcd
-                        self.abcd.Disable()
-                    if abcd:
-                        ab = {}
-                        ab['path'] = abcd.GetValue()
-                        ab['topic'] = topic
-                        ab['topic_type'] = topic_type
-                        ab['name'] = button_input_name
-                        self.select_created_topic[obj] = ab
+                    self.create_url_panel(sss, i, topic, topic_type, obj, "self.panel3")
 
                     up_area = wx.BoxSizer( wx.HORIZONTAL)
                     down_area = wx.BoxSizer(wx.HORIZONTAL)
@@ -379,8 +521,235 @@ class Final(InsideDesign):
                     down_area.Add(self.panel3, 1, wx.ALL | wx.EXPAND, 4)
                     sizer_select_topic.Add(down_area, 1, wx.EXPAND, 4)
                     szr.Add(sizer_select_topic, 0, wx.ALL | wx.EXPAND, 4)
-                    self.select_topic_delete_list.append(sizer_select_topic)
+                    self.select_topic_delete_dic[0].append(sizer_select_topic)
+            sss.SetSizer(szr)
+            # sssb.Add(sss, 0, wx.EXPAND, 0)
+            sss.Layout()
+            sssb.Layout()
+        else:
+            wx.MessageBox("Please Set Bag File")
 
+    def delete_topic_panel(self, szr, num=0):
+        topic_list = self.select_topic_delete_dic[num]
+
+        for topic in topic_list:
+            szr.Hide(topic)
+            szr.Remove(topic)
+        self.select_topic_delete_dic[num] = []
+
+    def delete_launch(self):
+        for k, val in self.selected_topic_dic.items():
+            self.launch_kill_proc2(k, self.cmd_dic)
+            val = self.selected_topic_dic.pop(k)
+            print("Kill '%s'" % self.cmd_dic[k][0])
+
+    def OnConfirmDepth(self, event):
+        push = event.GetEventObject()
+        if self.button_confirm_depth.GetValue():
+            button_var = getattr(self, "button_" + "button_input100")
+            button_var2 = getattr(self, "button_" + "button_input101")
+            output_url = self.obj_to_varpanel_tc(button_var, 'file').GetValue()
+            calib_url = self.obj_to_varpanel_tc(button_var2, 'file').GetValue()
+            if ("Please Set Output Directory" == output_url) or (not output_url) or (" " in output_url):
+                self.button_confirm_depth.SetValue(0)
+                self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
+                self.button_confirm_depth.SetForegroundColour(wx.NullColour)
+                wx.MessageBox("Please Set Correct Output Directory")
+                return
+            if output_url[-1] == "/":
+                output_url = output_url[:-1]
+
+            if not self.image_for_depth:
+                self.button_confirm_depth.SetValue(0)
+                self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
+                self.button_confirm_depth.SetForegroundColour(wx.NullColour)
+                wx.MessageBox("Please Select Image Topic")
+                return
+
+            if not self.pointcloud_for_depth:
+                self.button_confirm_depth.SetValue(0)
+                self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
+                self.button_confirm_depth.SetForegroundColour(wx.NullColour)
+                wx.MessageBox("Please Select Pointcloud Topic")
+                return
+
+            if ("Please Set Calibration File" == calib_url) or (not calib_url) or (" " in calib_url):
+                wx.MessageBox("Please Set Correct Calibration File URL")
+                self.button_confirm_depth.SetValue(0)
+                self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
+                self.button_confirm_depth.SetForegroundColour(wx.NullColour)
+                return
+            else:
+                cmd = "rosrun dataprocess get_depth.py %s %s %s %s" % (output_url, calib_url, self.image_for_depth, self.pointcloud_for_depth)
+                self.cmd_dic[push] = (cmd, None)
+                self.launch_kill_proc2(push, self.cmd_dic)
+                self.depth_flag = True
+                self.button_confirm_depth.SetBackgroundColour("#8B8BB9")
+                self.button_confirm_depth.SetForegroundColour("#F9F9F8")
+                #):('#F9F9F8','#8B8BB9'), (True,False):('#F9F9F8','#E0E0F0')
+                # self.selected_topic_dic[push] = push
+                print("launch '%s'" % self.cmd_dic[push][0])
+        else:
+            self.launch_kill_proc2(push, self.cmd_dic)
+            # val = self.selected_topic_dic.pop(push)
+            self.depth_flat = False
+            print("Kill '%s'" % self.cmd_dic[push][0])
+            self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
+            self.button_confirm_depth.SetForegroundColour(wx.NullColour)
+
+    def get_depth_topic(self):
+        bag_url = self.get_bag_url()
+
+        if bag_url:
+            self.topic_and_type_list = get_type_and_topic(bag_url)
+            szr = self.sizer_depth_topics
+            sss = self.depth_scroll
+            sssb = self.sizer_depth_box
+            #sssb.Remove(sss)
+            if self.selected_topic_dic:
+                self.delete_launch()
+
+            self.delete_topic_panel(szr, num=1)
+
+            topic_conversion_dic = {
+                'sensor_msgs/Image' : "RGB Image",
+                'sensor_msgs/PointCloud2' : "PCD",
+                'velodyne_msgs/VelodyneScan' : "sensor_msgs/PointCloud2"
+            }
+
+            select_image_staticbox = wx.StaticBox(sss, wx.ID_ANY, "Image")
+            select_image_staticbox.Lower()
+            sizer_image_topic = wx.StaticBoxSizer(select_image_staticbox, wx.VERTICAL)
+
+            select_pointcloud_staticbox = wx.StaticBox(sss, wx.ID_ANY, "PointCloud")
+            select_pointcloud_staticbox.Lower()
+            sizer_pointcloud_topic = wx.StaticBoxSizer(select_pointcloud_staticbox, wx.VERTICAL)
+
+            if True:
+                select_output_staticbox = wx.StaticBox(sss, wx.ID_ANY, "Depth Output Directory")
+                select_output_staticbox.Lower()
+                sizer_output_topic = wx.StaticBoxSizer(select_output_staticbox, wx.VERTICAL)
+                self.output_url = "output"
+                self.output_depth = wx.Panel(sss, wx.ID_ANY)
+                self.create_url_panel(sss, 100, "", "", self.output_url, "self.output_depth", file_type="dir", comment="Please Set Output Directory")
+                output_area = wx.BoxSizer( wx.HORIZONTAL)
+                output_area.Add(self.output_depth, 1, wx.ALL | wx.EXPAND, 4)
+                sizer_output_topic.Add(output_area, 1, wx.EXPAND, 4)
+                szr.Add(sizer_output_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[1].append(sizer_output_topic)
+
+            if True:
+                select_calib_staticbox = wx.StaticBox(sss, wx.ID_ANY, "Camera / Lidar Calibration File")
+                select_calib_staticbox.Lower()
+                sizer_calib_topic = wx.StaticBoxSizer(select_calib_staticbox, wx.VERTICAL)
+                self.calib_url = "calib"
+                self.panel_calibration = wx.Panel(sss, wx.ID_ANY)
+                self.create_url_panel(sss, 101, "", "", self.calib_url, "self.panel_calibration", file_type="file", comment="Please Set Calibration File")
+                calib_area = wx.BoxSizer( wx.HORIZONTAL)
+                calib_area.Add(self.panel_calibration, 1, wx.ALL | wx.EXPAND, 4)
+                sizer_calib_topic.Add(calib_area, 1, wx.EXPAND, 4)
+                szr.Add(sizer_calib_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[1].append(sizer_calib_topic)
+
+            for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
+                i = i + 30
+                if topic_type == "sensor_msgs/Image":
+                    panelx = None
+                    if topic_type == "velodyne_msgs/VelodyneScan":
+                        panelx = wx.Panel(sss, wx.ID_ANY)
+                        self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
+                        self.objx.SetValue(0)
+                        self.objx.Disable()
+                        self.objx.SetForegroundColour("#FF0000")
+                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.objx)
+
+                        self.buttonx = wx.ToggleButton(sss, wx.ID_ANY, _("Choose Lidar"))
+                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetLidar, self.buttonx)
+
+                        upper_area = wx.BoxSizer( wx.HORIZONTAL)
+                        upper_area.Add(panelx, 1, wx.ALL | wx.EXPAND, 4)
+                        upper_area.Add(self.buttonx, 0, wx.ALL, 1)
+                        sizer_image_topic.Add(upper_area)
+                        topic = "/points_raw"
+
+                    panel = wx.Panel(sss, wx.ID_ANY)
+                    obj = wx.CheckBox(panel, wx.ID_ANY, topic)
+                    obj.SetValue(0)
+
+                    if topic_type == "velodyne_msgs/VelodyneScan":
+                        self.obj = obj
+                        self.topic_type = topic_type
+                        topic_type = "sensor_msgs/PointCloud2"
+                        self.obj.Disable()
+                    else:
+                        self.topic_type = None
+                    obj.SetForegroundColour("#FF0000")
+                    self.Bind(wx.EVT_CHECKBOX, self.OnSelectImageCheckbox, obj)
+                    self.select_created_topic[obj] = topic
+
+                    panel2 = wx.Panel(sss, wx.ID_ANY)
+                    topic_sentence = "From  {0}  To  {1}".format(topic_type, topic_conversion_dic[topic_type])
+                    obj2 = wx.StaticText(panel2, wx.ID_ANY, topic_sentence)
+                    font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+                    obj2.SetFont(font)
+
+                    up_area = wx.BoxSizer( wx.HORIZONTAL)
+                    up_area.Add(panel, 1, wx.ALL | wx.EXPAND, 4)
+                    up_area.Add(panel2, 3, wx.TOP | wx.EXPAND | wx.LEFT, 6)
+                    sizer_image_topic.Add(up_area)
+
+            for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
+                if topic_type == "sensor_msgs/PointCloud2":
+                    panelx = None
+                    # self.objx = None
+                    if topic_type == "velodyne_msgs/VelodyneScan":
+                        panelx = wx.Panel(sss, wx.ID_ANY)
+                        self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
+                        self.objx.SetValue(0)
+                        self.objx.Disable()
+                        self.objx.SetForegroundColour("#FF0000")
+                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.objx)
+
+                        self.buttonx = wx.ToggleButton(sss, wx.ID_ANY, _("Choose Lidar"))
+                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetLidar, self.buttonx)
+
+                        upper_area = wx.BoxSizer( wx.HORIZONTAL)
+                        upper_area.Add(panelx, 1, wx.ALL | wx.EXPAND, 4)
+                        upper_area.Add(self.buttonx, 0, wx.ALL, 1)
+                        sizer_pointcloud_topic.Add(upper_area)
+                        topic = "/points_raw"
+
+                    panel = wx.Panel(sss, wx.ID_ANY)
+                    obj = wx.CheckBox(panel, wx.ID_ANY, topic)
+                    obj.SetValue(0)
+
+                    if topic_type == "velodyne_msgs/VelodyneScan":
+                        self.obj = obj
+                        self.topic_type = topic_type
+                        topic_type = "sensor_msgs/PointCloud2"
+                        self.obj.Disable()
+                    else:
+                        self.topic_type = None
+                    obj.SetForegroundColour("#FF0000")
+                    self.Bind(wx.EVT_CHECKBOX, self.OnSelectPointCheckbox, obj)
+                    self.select_created_topic[obj] = topic
+
+                    panel2 = wx.Panel(sss, wx.ID_ANY)
+                    topic_sentence = "From  {0}  To  {1}".format(topic_type, topic_conversion_dic[topic_type])
+                    obj2 = wx.StaticText(panel2, wx.ID_ANY, topic_sentence)
+                    #obj2.SetForegroundColour("#FF0000")
+                    font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+                    obj2.SetFont(font)
+
+                    up_area = wx.BoxSizer( wx.HORIZONTAL)
+                    up_area.Add(panel, 1, wx.ALL | wx.EXPAND, 4)
+                    up_area.Add(panel2, 3, wx.TOP | wx.EXPAND | wx.LEFT, 6)
+                    sizer_pointcloud_topic.Add(up_area)
+
+            szr.Add(sizer_image_topic, 0, wx.ALL | wx.EXPAND, 4)
+            self.select_topic_delete_dic[1].append(sizer_image_topic)
+            szr.Add(sizer_pointcloud_topic, 0, wx.ALL | wx.EXPAND, 4)
+            self.select_topic_delete_dic[1].append(sizer_pointcloud_topic)
             sss.SetSizer(szr)
             sss.Layout()
             sssb.Layout()
@@ -388,132 +757,8 @@ class Final(InsideDesign):
             wx.MessageBox("Please Set Bag File")
 
     def get_confirm_topic_list(self):
-        btn = self.button_play_rosbag_play
-        tc = self.obj_to_varpanel_tc(btn, 'file')
-        self.select_created_topic = {}
-
-        if tc.GetValue():
-            self.topic_and_type_list = get_type_and_topic(tc.GetValue())
-            szr = self.sizer_select_topics
-            sss = self.select_scroll
-            sssb = self.sizer_select_box
-            #sssb.Remove(sss)
-            if self.selected_topic_dic:
-                for k, val in self.selected_topic_dic.items():
-                    self.launch_kill_proc2(k, self.cmd_dic)
-                    val = self.selected_topic_dic.pop(k)
-                    print("Kill '%s'" % self.cmd_dic[k][0])
-
-            for topic_del in self.select_topic_delete_list:
-                szr.Hide(topic_del)
-                szr.Remove(topic_del)
-                self.select_topic_delete_list.pop(0)
-
-
-            topic_conversion_dic = {
-                'sensor_msgs/Image' : "RGB Image",
-                'sensor_msgs/PointCloud2' : "PCD",
-                'velodyne_msgs/VelodyneScan' : "sensor_msgs/PointCloud2"
-            }
-
-            for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
-                if topic_type in topic_conversion_dic.keys():
-                    select_topic_staticbox = wx.StaticBox(sss, wx.ID_ANY, "")
-                    select_topic_staticbox.Lower()
-                    sizer_select_topic = wx.StaticBoxSizer(select_topic_staticbox, wx.VERTICAL)
-                    panelx = None
-                    # self.objx = None
-                    if topic_type == "velodyne_msgs/VelodyneScan":
-                        panelx = wx.Panel(sss, wx.ID_ANY)
-                        self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
-                        self.objx.SetValue(0)
-                        self.objx.Disable()
-                        self.objx.SetForegroundColour("#FF0000")
-                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.objx)
-
-                        self.buttonx = wx.ToggleButton(sss, wx.ID_ANY, _("Choose Lidar"))
-                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetLidar, self.buttonx)
-
-                        upper_area = wx.BoxSizer( wx.HORIZONTAL)
-                        upper_area.Add(panelx, 1, wx.ALL | wx.EXPAND, 4)
-                        upper_area.Add(self.buttonx, 0, wx.ALL, 1)
-                        sizer_select_topic.Add(upper_area)
-                        topic = "/points_raw"
-
-                    panel = wx.Panel(sss, wx.ID_ANY)
-                    obj = wx.CheckBox(panel, wx.ID_ANY, topic)
-                    obj.SetValue(0)
-
-                    if topic_type == "velodyne_msgs/VelodyneScan":
-                        self.obj = obj
-                        self.topic_type = topic_type
-                        topic_type = "sensor_msgs/PointCloud2"
-                        self.obj.Disable()
-                    else:
-                        self.topic_type = None
-                    obj.SetForegroundColour("#FF0000")
-                    self.Bind(wx.EVT_CHECKBOX, self.OnSelectTopicCheckbox, obj)
-
-                    panel2 = wx.Panel(sss, wx.ID_ANY)
-                    topic_sentence = "From  {0}  To  {1}".format(topic_type, topic_conversion_dic[topic_type])
-                    obj2 = wx.StaticText(panel2, wx.ID_ANY, topic_sentence)
-                    #obj2.SetForegroundColour("#FF0000")
-                    font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-                    obj2.SetFont(font)
-
-
-                    self.panel3 = wx.Panel(sss, wx.ID_ANY)
-                    button_input_name = "button_input" + str(i)
-                    button_input_var_name = "button_input_var" + str(i)
-
-                    dic = {
-                        'buttons' : {button_input_name: {'gui': {'panel': 'self.panel3'},'param': button_input_var_name}},
-                        'params' : [
-                            {
-                                'no_save_vars' : ['file'],
-                                'name': button_input_var_name,
-                                'vars': [{'kind': 'path', 'name': 'file', 'path_type' : 'dir', 'v': 'Please Set Output Directory'}]
-                            }
-                        ]
-                    }
-
-                    self.add_params(dic.get('params', []))
-                    #################
-                    ##  set URL & param bar
-                    #################
-                    self.setup_buttons(dic.get('buttons'), self.simulation_cmd)
-
-                    abc = getattr(self, "button_" + button_input_name)
-                    abcd = self.obj_to_varpanel_tc(abc, 'file')
-                    if self.topic_type == "velodyne_msgs/VelodyneScan":
-                        self.abcd = abcd
-                        self.abcd.Disable()
-
-                    if abcd:
-                        ab = {}
-                        ab['path'] = abcd.GetValue()
-                        ab['topic'] = topic
-                        ab['topic_type'] = topic_type
-                        ab['name'] = button_input_name
-                        self.select_created_topic[obj] = ab
-
-                    up_area = wx.BoxSizer( wx.HORIZONTAL)
-                    down_area = wx.BoxSizer(wx.HORIZONTAL)
-                    up_area.Add(panel, 1, wx.ALL | wx.EXPAND, 4)
-                    up_area.Add(panel2, 3, wx.TOP | wx.EXPAND | wx.LEFT, 6)
-
-                    sizer_select_topic.Add(up_area)
-                    down_area.Add(self.panel3, 1, wx.ALL | wx.EXPAND, 4)
-                    sizer_select_topic.Add(down_area, 1, wx.EXPAND, 4)
-                    szr.Add(sizer_select_topic, 0, wx.ALL | wx.EXPAND, 4)
-                    self.select_topic_delete_list.append(sizer_select_topic)
-
-            sss.SetSizer(szr)
-            # sssb.Add(sss, 0, wx.EXPAND, 0)
-            sss.Layout()
-            sssb.Layout()
-        else:
-            wx.MessageBox("Please Set Bag File")
+        self.get_all_topic()
+        self.get_depth_topic()
 
     def OnClose(self, event):
     	# kill_all
@@ -1611,9 +1856,8 @@ class Final(InsideDesign):
     	self.alias_sync(obj)
     	obj = self.alias_grp_top_obj(obj)
     	v = obj.GetValue()
-        print("v", v)
     	add_args = self.obj_to_add_args(obj, msg_box=v) # no open dialog at kill
-        print("add_args", add_args)
+        # print("add_args", add_args)
         if add_args is False:
     		set_val(obj, not v)
     		return
@@ -1638,40 +1882,12 @@ class Final(InsideDesign):
     	if obj == play:
     		var['v'] = True
     		self.OnLaunchKill_obj(play)
-    		button_color_change(play)
-    		set_val(stop, False)
+    		button_color_change(play); self.button_confirm_depth.Disable()
+    		set_val(stop, False);self.button_play_rosbag_play2.Disable()
     		set_val(pause, False);self.button_confirm_topics.Disable()
     	elif obj == stop:
-    		set_val(stop, True)
-    		set_val(play, False)
-    		set_val(pause, False);self.button_confirm_topics.Enable()
-    		var['v'] = False
-    		self.OnLaunchKill_obj(play)
-    		button_color_change(stop)
-    	elif obj == pause:
-    		(_, _, proc) = self.obj_to_cmd_dic_cmd_proc(play)
-    		if proc:
-    			proc.stdin.write(' ')
-
-    def OnRosbagPlay2(self, event):
-    	obj = event.GetEventObject()
-
-    	play = self.button_play_rosbag_play2
-    	stop = self.button_stop_rosbag_play2
-    	pause = self.button_pause_rosbag_play2
-
-    	(_, _, prm) = self.obj_to_pdic_gdic_prm(play)
-    	var = self.get_var(prm, 'sim_time', {})
-
-    	if obj == play:
-    		var['v'] = True
-    		self.OnLaunchKill_obj(play)
-    		button_color_change(play)
-    		set_val(stop, False)
-    		set_val(pause, False);self.button_confirm_topics.Disable()
-    	elif obj == stop:
-    		set_val(stop, True)
-    		set_val(play, False)
+    		set_val(stop, True); self.button_confirm_depth.Enable()
+    		set_val(play, False); self.button_play_rosbag_play2.Enable()
     		set_val(pause, False);self.button_confirm_topics.Enable()
     		var['v'] = False
     		self.OnLaunchKill_obj(play)
@@ -1728,7 +1944,7 @@ class Final(InsideDesign):
     # thread
     def rosbag_play_progress_bar(self, file, ev):
     	while not ev.wait(0):
-    		s = self.stdout_file_search(file, 'Duration:'); print(1)
+    		s = self.stdout_file_search(file, 'Duration:')
     		if not s:
     			break
     		lst = s.split()
@@ -1747,28 +1963,6 @@ class Final(InsideDesign):
     	wx.CallAfter(self.label_rosbag_play_bar.clear)
     	wx.CallAfter(self.label_rosbag_play_pos.SetLabel, '')
     	wx.CallAfter(self.label_rosbag_play_total.SetLabel, '')
-
-    def rosbag_play_progress_bar2(self, file, ev):
-    	while not ev.wait(0):
-    		s = self.stdout_file_search(file, 'Duration:'); print(1)
-    		if not s:
-    			break
-    		lst = s.split()
-    		pos = str_to_float(lst[0])
-    		# lst[1] is '/'
-    		total = str_to_float(lst[2])
-    		if total == 0:
-    			continue
-    		prg = int(100 * pos / total + 0.5)
-    		pos = str(int(pos))
-    		total = str(int(total))
-
-    		wx.CallAfter(self.label_rosbag_play_bar2.set, prg)
-    		wx.CallAfter(self.label_rosbag_play_pos2.SetLabel, pos)
-    		wx.CallAfter(self.label_rosbag_play_total2.SetLabel, total)
-    	wx.CallAfter(self.label_rosbag_play_bar2.clear)
-    	wx.CallAfter(self.label_rosbag_play_pos2.SetLabel, '')
-    	wx.CallAfter(self.label_rosbag_play_total2.SetLabel, '')
 
     def alias_sync(self, obj, v=None):
     	en = None
@@ -1879,7 +2073,7 @@ class Final(InsideDesign):
 
     	proc = self.launch_kill(v, cmd, proc, add_args, obj=obj)
 
-    	self.cmd_dic[obj] = (cmd, proc)
+    	self.cmd_dic[obj] = (cmd, proc); return proc
 
     def proc_to_cmd_dic_obj(self, proc):
     	for cmd_dic in self.all_cmd_dics:
@@ -1889,7 +2083,7 @@ class Final(InsideDesign):
     	return (None, None)
 
     def launch_kill(self, v, cmd, proc, add_args=None, sigint=None, obj=None, kill_children=None):
-    	msg = None
+    	msg = None;print(v, proc)
     	msg = 'already launched.' if v and proc else msg
     	msg = 'already terminated.' if not v and proc is None else msg
     	msg = 'cmd not implemented.' if not cmd else msg
@@ -3082,8 +3276,6 @@ class DetailDialog(wx.Dialog):
         self.tc2 = wx.TextCtrl(panel, wx.ID_ANY, self.filename, style=1024)
         self.tc2.SetMinSize((300, 29))
         self.Bind(wx.EVT_TEXT_ENTER, self.update_path, self.tc2)
-
-        # dlg = wx.FileDialog(self, '', defaultDir=self.dirname, defaultFile=self.filename)
 
         ref = wx.Button(panel, wx.ID_ANY, 'Ref')
     	self.Bind(wx.EVT_BUTTON, self.open_dialog, ref)

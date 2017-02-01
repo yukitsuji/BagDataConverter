@@ -22,9 +22,10 @@ astar_navi:
   waypoint_velocity_kmph: 5.0
 button_input0: {}
 button_input1: {}
+button_input100: {}
+button_input101: {}
 button_input11:
   file: Please Set Calibration File
-button_input20: {}
 button_input3: {}
 button_input4: {}
 calibration_publisher:

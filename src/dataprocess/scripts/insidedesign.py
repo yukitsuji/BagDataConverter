@@ -63,6 +63,7 @@ class InsideDesign(BaseFrame):
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay, self.button_stop_rosbag_play)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay, self.button_pause_rosbag_play)
 
+        self.button_confirm_depth = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("confirm"))
         self.button_play_rosbag_play2 = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("Start Conversion"))
         self.button_stop_rosbag_play2 = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("Stop"))
         self.button_pause_rosbag_play2 = wx.ToggleButton(self.tab_depth, wx.ID_ANY, _("Pause"))
@@ -80,9 +81,11 @@ class InsideDesign(BaseFrame):
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay2, self.button_stop_rosbag_play2)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRosbagPlay2, self.button_pause_rosbag_play2)
 
+
         self.__set_properties()
 
         self.Bind(wx.EVT_BUTTON, self.OnGetConfirmTopics, self.button_confirm_topics)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnConfirmDepth, self.button_confirm_depth)
 
     def __set_properties(self):
         super(InsideDesign, self).set_properties()
@@ -133,9 +136,10 @@ class InsideDesign(BaseFrame):
         sizer_play_bar_area2 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_inside_play_bar_area2 = wx.BoxSizer(wx.VERTICAL)
         sizer_inside_play_stop_pause2 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_inside_play_stop_pause2.Add(self.button_play_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
-        sizer_inside_play_stop_pause2.Add(self.button_stop_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
-        sizer_inside_play_stop_pause2.Add(self.button_pause_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_inside_play_stop_pause2.Add(self.button_confirm_depth, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        sizer_inside_play_stop_pause2.Add(self.button_play_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        sizer_inside_play_stop_pause2.Add(self.button_stop_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        sizer_inside_play_stop_pause2.Add(self.button_pause_rosbag_play2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
         sizer_play_stop_pause_bar_area2.Add(sizer_inside_play_stop_pause2, 1, wx.EXPAND, 0)
         sizer_play_bar_area2.Add(self.label_rosbag_play_bar2, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
         sizer_inside_play_bar_area2.Add(self.label_rosbag_play_pos2, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL, 0)
@@ -209,7 +213,7 @@ class InsideDesign(BaseFrame):
     	event.Skip()
 
     def OnRosbagPlay2(self, event):  # wxGlade: MyFrame.<event_handler>
-    	print "Event handler 'OnRosbagPlay' not implemented!"
+    	print "Event handler 'OnRosbagPlay2' not implemented!"
     	event.Skip()
 
 
@@ -227,6 +231,10 @@ class InsideDesign(BaseFrame):
 
     def OnGetConfirmTopics(self, event):
         print("Event handler 'OnGetConfirmTopics' not implemented!")
+        event.Skip()
+
+    def OnConfirmDepth(self, event):
+        print("Event handler 'OnConfirmDepth' not implemented")
         event.Skip()
 
 class MyDialogRosbagRecord(wx.Dialog):
