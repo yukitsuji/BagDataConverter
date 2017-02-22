@@ -18,6 +18,7 @@ class InsideDesign(BaseFrame):
         self.panel_rosbag_play = wx.Panel(self.tab_simulation, wx.ID_ANY)
         self.sizer_79_staticbox = wx.StaticBox(self.tab_simulation, wx.ID_ANY, "")
         self.button_confirm_topics = wx.Button(self.tab_simulation, wx.ID_ANY, _("confirm"))
+        self.button_rviz = wx.ToggleButton(self.tab_simulation, wx.ID_ANY, _("RViz"))
 
 
         ###########################
@@ -85,6 +86,7 @@ class InsideDesign(BaseFrame):
         self.__set_properties()
 
         self.Bind(wx.EVT_BUTTON, self.OnGetConfirmTopics, self.button_confirm_topics)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnRviz, self.button_rviz)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnConfirmDepth, self.button_confirm_depth)
 
     def __set_properties(self):
@@ -109,7 +111,10 @@ class InsideDesign(BaseFrame):
         sizer_79 = wx.StaticBoxSizer(self.sizer_79_staticbox, wx.VERTICAL)
         sizer_79.Add(self.panel_rosbag_play, 1, wx.ALL | wx.EXPAND, 4)
         # sizer_79.Add(self.panel_rosbag_play2, 1, wx.ALL | wx.EXPAND, 4)
-        sizer_79.Add(self.button_confirm_topics, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_button_topics = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_button_topics.Add(self.button_confirm_topics, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_button_topics.Add(self.button_rviz, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 4)
+        sizer_79.Add(sizer_button_topics)
         sizer_78.Add(sizer_79, 0, wx.ALL | wx.EXPAND, 4)
 
 		################################3
@@ -216,6 +221,9 @@ class InsideDesign(BaseFrame):
     	print "Event handler 'OnRosbagPlay2' not implemented!"
     	event.Skip()
 
+    def OnRviz(self, event):
+        print(1)
+        event.Skip()
 
     def OnFtrace(self, event):  # wxGlade: MyFrame.<event_handler>
     	print "Event handler 'OnFtrace' not implemented!"

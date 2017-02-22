@@ -86,6 +86,7 @@ class Final(InsideDesign):
         self.selected_pcd = {}
         self.image_for_depth = None
         self.pointcloud_for_depth = None
+        self.objx = False
         #
         # self.depth_cmd = {}
         # self.all_cmd_dics.append(self.depth_cmd)
@@ -166,6 +167,24 @@ class Final(InsideDesign):
         icon.CopyFromBitmap(bm)
         self.SetIcon(icon)
 
+
+    def OnRviz(self, event):
+        print(1)
+        push = event.GetEventObject()
+        cmd = None
+        print(1)
+
+        if push.GetValue():
+            self.selected_topic_dic[push] = "RViz"
+            cmd = "rosrun rviz rviz -f velodyne"
+            self.cmd_dic[push] = (cmd, None)
+            self.launch_kill_proc2(push, self.cmd_dic)
+        else:
+            self.launch_kill_proc2(push, self.cmd_dic)
+            val = self.selected_topic_dic.pop(push)
+            print("Kill '%s'" % self.cmd_dic[push][0])
+            push.SetBackgroundColour(wx.NullColour)
+
     def OnRosbagPlay2(self, event):
         push = event.GetEventObject()
         btn = self.button_play_rosbag_play
@@ -195,13 +214,11 @@ class Final(InsideDesign):
                 self.button_pause_rosbag_play2.SetValue(0)
                 self.button_confirm_topics.Disable()
                 self.button_confirm_depth.Disable()
-                print("Play")
             elif push == self.button_pause_rosbag_play2:
                 if self.proc:
                     self.proc.stdin.write(' ')
                 self.button_stop_rosbag_play2.Enable()
                 self.button_pause_rosbag_play2.Enable()
-                print("Pause")
             elif push == self.button_stop_rosbag_play2:
                 # self.proc = self.launch_kill_proc2(self.button_play_rosbag_play2, self.cmd_dic)
                 self.button_play_rosbag_play2.Enable()
@@ -215,12 +232,10 @@ class Final(InsideDesign):
                 self.button_confirm_depth.Enable()
                 self.button_confirm_topics.Enable()
                 dic = { (True,True):('#F9F9F8','#8B8BB9'), (True,False):('#F9F9F8','#E0E0F0') }
-            	# (fcol, bcol) = dic.get(key, (wx.NullColour, wx.NullColour))
             	self.button_play_rosbag_play2.SetBackgroundColour(wx.NullColour)
                 self.button_stop_rosbag_play2.SetBackgroundColour("#E0E0F0")
                 self.button_pause_rosbag_play2.SetBackgroundColour(wx.NullColour)
                 self.button_play_rosbag_play2.SetForegroundColour(wx.NullColour)
-                print("Stop")
                 sigint = 'SIGTERM'
                 if True:
                 	terminate_children(self.proc, sigint)
@@ -270,7 +285,7 @@ class Final(InsideDesign):
     	i = s.find(k) + len(k)
     	return s[i:]
 
-    def OnSelectTopicCheckbox(self, event):
+    def OnConvertCheckedTopic(self, event):
         push = event.GetEventObject()
         cmd = None
 
@@ -287,22 +302,11 @@ class Final(InsideDesign):
                 if not os.path.exists(topic_path):
                     subprocess.call(['mkdir', '-p', topic_path])
                 self.selected_topic_dic[push] = topic_output_info
-
                 topic_type = topic_output_info['topic_type']
-                if topic_type == 'velodyne_msgs/VelodyneScan':
-                    """
-                    "Please Select Lidar config"
-                    "velodyne32, 64, and so on"
-                    "Set URL in Ref"
-                    """
-                    print(topic_output_info)
-                    cmd = "roslaunch velodyne_pointcloud velodyne_hdl64e_s2.launch"
-                    print(cmd)
-
                 if topic_type == 'sensor_msgs/Image':
-                    #cmd = "rosrun dataprocess get_ImageTopic.py %s %s" % (topic_path, topic_output_info['topic'])
-                    file_format = topic_output_info['topic'][1:].replace('/', '_') + "_%08d.%s"
-                    cmd = "rosrun image_view image_saver image:=%s _filename_format:=%s" % (topic_output_info['topic'], file_format)
+                    cmd = "rosrun dataprocess get_ImageTopic.py %s %s" % (topic_path, topic_output_info['topic'])
+                    # file_format = topic_output_info['topic'][1:].replace('/', '_') + "_%08d.%s"
+                    # cmd = "rosrun image_view image_saver image:=%s _filename_format:=%s" % (topic_output_info['topic'], file_format)
                     self.cmd_dic[push] = (cmd, None)
                     self.launch_kill_proc2(push, self.cmd_dic)
 
@@ -334,7 +338,6 @@ class Final(InsideDesign):
             del self.selected_pcd[push]
             self.pointcloud_for_depth = None
 
-
     def OnSelectImageCheckbox(self, event):
         push = event.GetEventObject()
 
@@ -356,6 +359,19 @@ class Final(InsideDesign):
             self.button_confirm_depth.SetBackgroundColour(wx.NullColour)
             self.button_confirm_depth.SetForegroundColour(wx.NullColour)
             self.launch_kill_proc2(self.button_confirm_depth, self.cmd_dic)
+
+        if self.objx:
+            if self.objx.GetValue():
+                self.objx.SetValue(0)
+                self.launch_kill_proc2(self.objx, self.cmd_dic)
+                val = self.selected_topic_dic.pop(self.objx)
+                print("Kill '%s'" % self.cmd_dic[self.objx][0])
+                self.objx.SetValue(0)
+                # self.points_raw.Disable()
+                self.points_raw_save.Disable()
+                self.points_raw_depth.Disable()
+                self.file_url.Disable()
+
         self.button_confirm_depth.Enable()
         self.get_confirm_topic_list()
 
@@ -380,8 +396,13 @@ class Final(InsideDesign):
                     cmd = "roslaunch" + " ./src/dataprocess/scripts/" + dic[self.select]
                 self.cmd_dic[push] = (cmd, None)
                 self.launch_kill_proc2(push, self.cmd_dic)
-                self.obj.Enable()
-                self.file_url.Enable()
+                if push == self.objx:
+                    self.points_raw_save.Enable()
+                    self.file_url.Enable()
+                if push == self.velodyne_button:
+                    self.points_raw_depth.Enable()
+                # if push != self.velodyne_button:
+                #     self.file_url.Enable()
 
                 print("launch '%s'" % self.cmd_dic[push][0])
             else:
@@ -392,7 +413,15 @@ class Final(InsideDesign):
             val = self.selected_topic_dic.pop(push)
             print("Kill '%s'" % self.cmd_dic[push][0])
             push.SetValue(0)
-            self.obj.Disable()
+            if push == self.objx:
+                if self.points_raw_save.GetValue():
+                    self.launch_kill_proc2(self.points_raw_save, self.cmd_dic)
+                    val = self.selected_topic_dic.pop(self.points_raw_save)
+                    print("Kill '%s'" % self.cmd_dic[self.points_raw_save][0])
+                self.points_raw_save.SetValue(0)
+                self.points_raw_save.Disable()
+            self.points_raw_depth.Disable()
+            # self.points_raw.Disable()
             self.file_url.Disable()
 
     def OnGetLidar(self, event):
@@ -405,7 +434,24 @@ class Final(InsideDesign):
                 self.objx.Enable()
             else:
                 self.objx.Disable()
-                self.obj.Disable()
+                # self.points_raw.Disable()
+                self.points_raw_depth.Disable()
+                self.points_raw_save.Disable()
+                self.file_url.Disable()
+
+    def OnGetDepthLidar(self, event):
+        dialog = DetailDialog(self)
+        try:
+            dialog.ShowModal()
+        finally:
+            dialog.Destroy()
+            if ((self.file_path) and (self.select)):
+                self.velodyne_button.Enable()
+            else:
+                self.velodyne_button.Disable()
+                # self.points_raw.Disable()
+                self.points_raw_save.Disable()
+                self.points_raw_depth.Disable()
                 self.file_url.Disable()
 
     def get_bag_url(self):
@@ -470,7 +516,6 @@ class Final(InsideDesign):
                     select_topic_staticbox.Lower()
                     sizer_select_topic = wx.StaticBoxSizer(select_topic_staticbox, wx.VERTICAL)
                     panelx = None
-                    # self.objx = None
                     if topic_type == "velodyne_msgs/VelodyneScan":
                         panelx = wx.Panel(sss, wx.ID_ANY)
                         self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
@@ -493,14 +538,14 @@ class Final(InsideDesign):
                     obj.SetValue(0)
 
                     if topic_type == "velodyne_msgs/VelodyneScan":
-                        self.obj = obj
+                        self.points_raw_save = obj
                         self.topic_type = topic_type
                         topic_type = "sensor_msgs/PointCloud2"
-                        self.obj.Disable()
+                        self.points_raw_save.Disable()
                     else:
                         self.topic_type = None
                     obj.SetForegroundColour("#FF0000")
-                    self.Bind(wx.EVT_CHECKBOX, self.OnSelectTopicCheckbox, obj)
+                    self.Bind(wx.EVT_CHECKBOX, self.OnConvertCheckedTopic, obj)
 
                     panel2 = wx.Panel(sss, wx.ID_ANY)
                     topic_sentence = "From  {0}  To  {1}".format(topic_type, topic_conversion_dic[topic_type])
@@ -580,7 +625,7 @@ class Final(InsideDesign):
                 self.button_confirm_depth.SetForegroundColour(wx.NullColour)
                 return
             else:
-                cmd = "rosrun dataprocess get_depth.py %s %s %s %s" % (output_url, calib_url, self.image_for_depth, self.pointcloud_for_depth)
+                cmd = "rosrun dataprocess get_Depth.py %s %s %s %s" % (output_url, calib_url, self.image_for_depth, self.pointcloud_for_depth)
                 self.cmd_dic[push] = (cmd, None)
                 self.launch_kill_proc2(push, self.cmd_dic)
                 self.depth_flag = True
@@ -654,35 +699,9 @@ class Final(InsideDesign):
             for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
                 i = i + 30
                 if topic_type == "sensor_msgs/Image":
-                    panelx = None
-                    if topic_type == "velodyne_msgs/VelodyneScan":
-                        panelx = wx.Panel(sss, wx.ID_ANY)
-                        self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
-                        self.objx.SetValue(0)
-                        self.objx.Disable()
-                        self.objx.SetForegroundColour("#FF0000")
-                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.objx)
-
-                        self.buttonx = wx.ToggleButton(sss, wx.ID_ANY, _("Choose Lidar"))
-                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetLidar, self.buttonx)
-
-                        upper_area = wx.BoxSizer( wx.HORIZONTAL)
-                        upper_area.Add(panelx, 1, wx.ALL | wx.EXPAND, 4)
-                        upper_area.Add(self.buttonx, 0, wx.ALL, 1)
-                        sizer_image_topic.Add(upper_area)
-                        topic = "/points_raw"
-
                     panel = wx.Panel(sss, wx.ID_ANY)
                     obj = wx.CheckBox(panel, wx.ID_ANY, topic)
                     obj.SetValue(0)
-
-                    if topic_type == "velodyne_msgs/VelodyneScan":
-                        self.obj = obj
-                        self.topic_type = topic_type
-                        topic_type = "sensor_msgs/PointCloud2"
-                        self.obj.Disable()
-                    else:
-                        self.topic_type = None
                     obj.SetForegroundColour("#FF0000")
                     self.Bind(wx.EVT_CHECKBOX, self.OnSelectImageCheckbox, obj)
                     self.select_created_topic[obj] = topic
@@ -699,19 +718,18 @@ class Final(InsideDesign):
                     sizer_image_topic.Add(up_area)
 
             for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
-                if topic_type == "sensor_msgs/PointCloud2":
+                if topic_type == "sensor_msgs/PointCloud2" or topic_type == "velodyne_msgs/VelodyneScan":
                     panelx = None
-                    # self.objx = None
                     if topic_type == "velodyne_msgs/VelodyneScan":
                         panelx = wx.Panel(sss, wx.ID_ANY)
-                        self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
-                        self.objx.SetValue(0)
-                        self.objx.Disable()
-                        self.objx.SetForegroundColour("#FF0000")
-                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.objx)
+                        self.velodyne_button = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
+                        self.velodyne_button.SetValue(0)
+                        self.velodyne_button.Disable()
+                        self.velodyne_button.SetForegroundColour("#FF0000")
+                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.velodyne_button)
 
                         self.buttonx = wx.ToggleButton(sss, wx.ID_ANY, _("Choose Lidar"))
-                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetLidar, self.buttonx)
+                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetDepthLidar, self.buttonx)
 
                         upper_area = wx.BoxSizer( wx.HORIZONTAL)
                         upper_area.Add(panelx, 1, wx.ALL | wx.EXPAND, 4)
@@ -724,10 +742,10 @@ class Final(InsideDesign):
                     obj.SetValue(0)
 
                     if topic_type == "velodyne_msgs/VelodyneScan":
-                        self.obj = obj
+                        self.points_raw_depth = obj
                         self.topic_type = topic_type
                         topic_type = "sensor_msgs/PointCloud2"
-                        self.obj.Disable()
+                        self.points_raw_depth.Disable()
                     else:
                         self.topic_type = None
                     obj.SetForegroundColour("#FF0000")
@@ -2083,7 +2101,7 @@ class Final(InsideDesign):
     	return (None, None)
 
     def launch_kill(self, v, cmd, proc, add_args=None, sigint=None, obj=None, kill_children=None):
-    	msg = None;print(v, proc)
+    	msg = None
     	msg = 'already launched.' if v and proc else msg
     	msg = 'already terminated.' if not v and proc is None else msg
     	msg = 'cmd not implemented.' if not cmd else msg

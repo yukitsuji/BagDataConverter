@@ -20,13 +20,11 @@ Velodyne HDL-32e:
 astar_navi:
   use_back: false
   waypoint_velocity_kmph: 5.0
-button_input0: {}
 button_input1: {}
 button_input100: {}
 button_input101: {}
 button_input11:
   file: Please Set Calibration File
-button_input3: {}
 button_input4: {}
 calibration_publisher:
   camera_id: ''
@@ -103,7 +101,7 @@ pedestrian_kf:
   use_orb: 0
 play_rosbag_play:
   confirm: 0
-  file: /home/katou01/.autoware/2015-10-22-15-36-37_0_1TB_3m.bag
+  file: /home/katou01/.autoware/depth/autoware-201701171120.bag
   rate: 9.0
   repeat: false
   start: 0
