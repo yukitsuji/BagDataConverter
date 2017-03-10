@@ -101,7 +101,7 @@ pedestrian_kf:
   use_orb: 0
 play_rosbag_play:
   confirm: 0
-  file: /home/katou01/.autoware/depth/autoware-201701171120.bag
+  file: /home/katou01/.autoware/autoware-201701171120.bag
   rate: 9.0
   repeat: false
   start: 0

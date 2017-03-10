@@ -87,6 +87,7 @@ class Final(InsideDesign):
         self.image_for_depth = None
         self.pointcloud_for_depth = None
         self.objx = False
+        self.velodyne_button = False
         #
         # self.depth_cmd = {}
         # self.all_cmd_dics.append(self.depth_cmd)
@@ -169,10 +170,8 @@ class Final(InsideDesign):
 
 
     def OnRviz(self, event):
-        print(1)
         push = event.GetEventObject()
         cmd = None
-        print(1)
 
         if push.GetValue():
             self.selected_topic_dic[push] = "RViz"
@@ -363,17 +362,31 @@ class Final(InsideDesign):
         if self.objx:
             if self.objx.GetValue():
                 self.objx.SetValue(0)
-                self.launch_kill_proc2(self.objx, self.cmd_dic)
+                self.launch_kill_proc2(self.objx, self.cmd_dic, is_rapid_delete=True)
                 val = self.selected_topic_dic.pop(self.objx)
                 print("Kill '%s'" % self.cmd_dic[self.objx][0])
                 self.objx.SetValue(0)
-                # self.points_raw.Disable()
+                self.points_raw_save.Disable()
+                self.points_raw_depth.Disable()
+                self.file_url.Disable()
+
+        if self.velodyne_button:
+            if self.velodyne_button.GetValue():
+                self.velodyne_button.SetValue(0)
+                self.launch_kill_proc2(self.velodyne_button, self.cmd_dic, is_rapid_delete=True)
+                val = self.selected_topic_dic.pop(self.velodyne_button)
+                print("Kill '%s'" % self.cmd_dic[self.velodyne_button][0])
+                self.velodyne_button.SetValue(0)
                 self.points_raw_save.Disable()
                 self.points_raw_depth.Disable()
                 self.file_url.Disable()
 
         self.button_confirm_depth.Enable()
         self.get_confirm_topic_list()
+
+    def get_confirm_topic_list(self):
+        self.get_all_topics()
+        self.get_depth_topic()
 
     def OnConvertVelodyne(self, event):
         push = event.GetEventObject()
@@ -391,6 +404,7 @@ class Final(InsideDesign):
             if ((self.file_path) and (self.select)):
                 self.selected_topic_dic[push] = dic[self.select]
                 if not((self.select == 5) or (self.select == 6)):
+                    # cmd = "roslaunch velodyne_pointcloud 32e_points.launch"
                     cmd = "roslaunch" + " ./src/dataprocess/scripts/" + dic[self.select] + " calibration:=%s" %self.file_path
                 else:
                     cmd = "roslaunch" + " ./src/dataprocess/scripts/" + dic[self.select]
@@ -409,7 +423,7 @@ class Final(InsideDesign):
                 push.SetValue(0)
                 wx.MessageBox("Please Choose Lidar")
         else:
-            self.launch_kill_proc2(push, self.cmd_dic)
+            self.launch_kill_proc2(push, self.cmd_dic, is_rapid_delete=True)
             val = self.selected_topic_dic.pop(push)
             print("Kill '%s'" % self.cmd_dic[push][0])
             push.SetValue(0)
@@ -449,7 +463,6 @@ class Final(InsideDesign):
                 self.velodyne_button.Enable()
             else:
                 self.velodyne_button.Disable()
-                # self.points_raw.Disable()
                 self.points_raw_save.Disable()
                 self.points_raw_depth.Disable()
                 self.file_url.Disable()
@@ -574,6 +587,140 @@ class Final(InsideDesign):
         else:
             wx.MessageBox("Please Set Bag File")
 
+    def get_all_topics(self):
+        bag_url = self.get_bag_url()
+        self.select_created_topic = {}
+        self.topic_type = None
+
+        if bag_url:
+            self.topic_and_type_list = get_type_and_topic(bag_url)
+            szr = self.sizer_select_topics
+            sss = self.select_scroll
+            sssb = self.sizer_select_box
+            if self.selected_topic_dic:
+                self.delete_launch()
+
+            self.delete_topic_panel(szr, num=0)
+
+            topic_conversion_dic = {
+                'sensor_msgs/Image' : "RGB Image",
+                'sensor_msgs/PointCloud2' : "PCD",
+                'velodyne_msgs/VelodyneScan' : "sensor_msgs/PointCloud2"
+            }
+
+            sizer_image_topic = None
+            sizer_pointcloud_topic = None
+            for topic_type, topic in self.topic_and_type_list:
+                if topic_type == "sensor_msgs/Image":
+                    if sizer_image_topic == None:
+                        select_image_staticbox = wx.StaticBox(sss, wx.ID_ANY, "Image")
+                        select_image_staticbox.Lower()
+                        sizer_image_topic = wx.StaticBoxSizer(select_image_staticbox, wx.VERTICAL)
+
+                if topic_type in ["sensor_msgs/PointCloud2", 'velodyne_msgs/VelodyneScan']:
+                    if sizer_pointcloud_topic == None:
+                        select_pointcloud_staticbox = wx.StaticBox(sss, wx.ID_ANY, "PointCloud")
+                        select_pointcloud_staticbox.Lower()
+                        sizer_pointcloud_topic = wx.StaticBoxSizer(select_pointcloud_staticbox, wx.VERTICAL)
+
+            for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
+                if topic_type == "sensor_msgs/Image":
+                    panelx = None
+                    panel = wx.Panel(sss, wx.ID_ANY)
+                    obj = wx.CheckBox(panel, wx.ID_ANY, topic)
+                    obj.SetValue(0)
+
+                    self.topic_type = None
+                    obj.SetForegroundColour("#FF0000")
+                    self.Bind(wx.EVT_CHECKBOX, self.OnConvertCheckedTopic, obj)
+
+                    panel2 = wx.Panel(sss, wx.ID_ANY)
+                    topic_sentence = "From  {0}  To  {1}".format(topic_type, topic_conversion_dic[topic_type])
+                    obj2 = wx.StaticText(panel2, wx.ID_ANY, topic_sentence)
+                    #obj2.SetForegroundColour("#FF0000")
+                    font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+                    obj2.SetFont(font)
+
+                    self.panel3 = wx.Panel(sss, wx.ID_ANY)
+                    self.create_url_panel(sss, i, topic, topic_type, obj, "self.panel3")
+
+                    up_area = wx.BoxSizer( wx.HORIZONTAL)
+                    down_area = wx.BoxSizer(wx.HORIZONTAL)
+                    up_area.Add(panel, 1, wx.ALL | wx.EXPAND, 4)
+                    up_area.Add(panel2, 3, wx.TOP | wx.EXPAND | wx.LEFT, 6)
+
+                    sizer_image_topic.Add(up_area)
+                    down_area.Add(self.panel3, 1, wx.ALL | wx.EXPAND, 4)
+                    sizer_image_topic.Add(down_area, 1, wx.EXPAND, 4)
+
+            for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
+                if topic_type in ["velodyne_msgs/VelodyneScan", "sensor_msgs/PointCloud2"]:
+                # if topic_type in topic_conversion_dic.keys():
+                    panelx = None
+
+                    if topic_type == "velodyne_msgs/VelodyneScan":
+                        panelx = wx.Panel(sss, wx.ID_ANY)
+                        self.objx = wx.CheckBox(panelx, wx.ID_ANY, "Convert  {0}  To  {1}".format("VelodyneScan", "PointCloud2"))
+                        self.objx.SetValue(0)
+                        self.objx.Disable()
+                        self.objx.SetForegroundColour("#FF0000")
+                        self.Bind(wx.EVT_CHECKBOX, self.OnConvertVelodyne, self.objx)
+
+                        self.buttonx = wx.ToggleButton(sss, wx.ID_ANY, _("Choose Lidar"))
+                        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnGetLidar, self.buttonx)
+
+                        upper_area = wx.BoxSizer( wx.HORIZONTAL)
+                        upper_area.Add(panelx, 1, wx.ALL | wx.EXPAND, 4)
+                        upper_area.Add(self.buttonx, 0, wx.ALL, 1)
+                        sizer_pointcloud_topic.Add(upper_area)
+                        topic = "/points_raw"
+
+                    panel = wx.Panel(sss, wx.ID_ANY)
+                    obj = wx.CheckBox(panel, wx.ID_ANY, topic)
+                    obj.SetValue(0)
+
+                    if topic_type == "velodyne_msgs/VelodyneScan":
+                        self.points_raw_save = obj
+                        self.topic_type = topic_type
+                        topic_type = "sensor_msgs/PointCloud2"
+                        self.points_raw_save.Disable()
+                    else:
+                        self.topic_type = None
+                    obj.SetForegroundColour("#FF0000")
+                    self.Bind(wx.EVT_CHECKBOX, self.OnConvertCheckedTopic, obj)
+
+                    panel2 = wx.Panel(sss, wx.ID_ANY)
+                    topic_sentence = "From  {0}  To  {1}".format(topic_type, topic_conversion_dic[topic_type])
+                    obj2 = wx.StaticText(panel2, wx.ID_ANY, topic_sentence)
+                    #obj2.SetForegroundColour("#FF0000")
+                    font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+                    obj2.SetFont(font)
+
+                    self.panel3 = wx.Panel(sss, wx.ID_ANY)
+                    self.create_url_panel(sss, i, topic, topic_type, obj, "self.panel3")
+
+                    up_area = wx.BoxSizer( wx.HORIZONTAL)
+                    down_area = wx.BoxSizer(wx.HORIZONTAL)
+                    up_area.Add(panel, 1, wx.ALL | wx.EXPAND, 4)
+                    up_area.Add(panel2, 3, wx.TOP | wx.EXPAND | wx.LEFT, 6)
+
+                    sizer_pointcloud_topic.Add(up_area)
+                    down_area.Add(self.panel3, 1, wx.ALL | wx.EXPAND, 4)
+                    sizer_pointcloud_topic.Add(down_area, 1, wx.EXPAND, 4)
+
+            if sizer_image_topic != None:
+                szr.Add(sizer_image_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[0].append(sizer_image_topic)
+            if sizer_pointcloud_topic != None:
+                szr.Add(sizer_pointcloud_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[0].append(sizer_pointcloud_topic)
+            sss.SetSizer(szr)
+            sss.Layout()
+            sssb.Layout()
+
+        else:
+            wx.MessageBox("Please Set Bag File")
+
     def delete_topic_panel(self, szr, num=0):
         topic_list = self.select_topic_delete_dic[num]
 
@@ -584,9 +731,11 @@ class Final(InsideDesign):
 
     def delete_launch(self):
         for k, val in self.selected_topic_dic.items():
+            k.SetValue(0)
             self.launch_kill_proc2(k, self.cmd_dic)
             val = self.selected_topic_dic.pop(k)
             print("Kill '%s'" % self.cmd_dic[k][0])
+            self.cmd_dic.pop(k)
 
     def OnConfirmDepth(self, event):
         push = event.GetEventObject()
@@ -643,6 +792,7 @@ class Final(InsideDesign):
             self.button_confirm_depth.SetForegroundColour(wx.NullColour)
 
     def get_depth_topic(self):
+        self.topic_type = None
         bag_url = self.get_bag_url()
 
         if bag_url:
@@ -662,6 +812,8 @@ class Final(InsideDesign):
                 'velodyne_msgs/VelodyneScan' : "sensor_msgs/PointCloud2"
             }
 
+            is_image_topic = False
+            is_pointcloud_topic = False
             select_image_staticbox = wx.StaticBox(sss, wx.ID_ANY, "Image")
             select_image_staticbox.Lower()
             sizer_image_topic = wx.StaticBoxSizer(select_image_staticbox, wx.VERTICAL)
@@ -699,6 +851,7 @@ class Final(InsideDesign):
             for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
                 i = i + 30
                 if topic_type == "sensor_msgs/Image":
+                    is_image_topic = True
                     panel = wx.Panel(sss, wx.ID_ANY)
                     obj = wx.CheckBox(panel, wx.ID_ANY, topic)
                     obj.SetValue(0)
@@ -719,6 +872,7 @@ class Final(InsideDesign):
 
             for i, (topic_type, topic) in enumerate(self.topic_and_type_list):
                 if topic_type == "sensor_msgs/PointCloud2" or topic_type == "velodyne_msgs/VelodyneScan":
+                    is_pointcloud_topic = True
                     panelx = None
                     if topic_type == "velodyne_msgs/VelodyneScan":
                         panelx = wx.Panel(sss, wx.ID_ANY)
@@ -746,6 +900,7 @@ class Final(InsideDesign):
                         self.topic_type = topic_type
                         topic_type = "sensor_msgs/PointCloud2"
                         self.points_raw_depth.Disable()
+                        self.output_depth.Enable()
                     else:
                         self.topic_type = None
                     obj.SetForegroundColour("#FF0000")
@@ -764,19 +919,42 @@ class Final(InsideDesign):
                     up_area.Add(panel2, 3, wx.TOP | wx.EXPAND | wx.LEFT, 6)
                     sizer_pointcloud_topic.Add(up_area)
 
-            szr.Add(sizer_image_topic, 0, wx.ALL | wx.EXPAND, 4)
-            self.select_topic_delete_dic[1].append(sizer_image_topic)
-            szr.Add(sizer_pointcloud_topic, 0, wx.ALL | wx.EXPAND, 4)
-            self.select_topic_delete_dic[1].append(sizer_pointcloud_topic)
+            if is_image_topic:
+                szr.Add(sizer_image_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[1].append(sizer_image_topic)
+            else:
+                topic_sentence = "     Please choose the Bag File including Image Topic"
+                imagepanel = wx.Panel(sss, wx.ID_ANY)
+                obj = wx.StaticText(imagepanel, wx.ID_ANY, topic_sentence)
+                font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+                obj.SetFont(font)
+                obj.SetForegroundColour("#FF0000")
+                up_area = wx.BoxSizer( wx.HORIZONTAL)
+                up_area.Add(imagepanel, 1, wx.ALL | wx.EXPAND, 4)
+                sizer_image_topic.Add(up_area)
+                szr.Add(sizer_image_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[1].append(sizer_image_topic)
+
+            if is_pointcloud_topic:
+                szr.Add(sizer_pointcloud_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[1].append(sizer_pointcloud_topic)
+            else:
+                topic_sentence = "     Please choose the Bag File including PointCloud Topic"
+                pointcloudpanel = wx.Panel(sss, wx.ID_ANY)
+                obj = wx.StaticText(pointcloudpanel, wx.ID_ANY, topic_sentence)
+                font = wx.Font(13, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+                obj.SetFont(font)
+                obj.SetForegroundColour("#FF0000")
+                up_area = wx.BoxSizer( wx.HORIZONTAL)
+                up_area.Add(pointcloudpanel, 1, wx.ALL | wx.EXPAND, 4)
+                sizer_pointcloud_topic.Add(up_area)
+                szr.Add(sizer_pointcloud_topic, 0, wx.ALL | wx.EXPAND, 4)
+                self.select_topic_delete_dic[1].append(sizer_pointcloud_topic)
             sss.SetSizer(szr)
             sss.Layout()
             sssb.Layout()
         else:
             wx.MessageBox("Please Set Bag File")
-
-    def get_confirm_topic_list(self):
-        self.get_all_topic()
-        self.get_depth_topic()
 
     def OnClose(self, event):
     	# kill_all
@@ -2072,7 +2250,7 @@ class Final(InsideDesign):
     	if not cmd:
     		set_val(obj, False)
 
-    	proc = self.launch_kill(v, cmd, proc, add_args, obj=obj)
+    	proc = self.launch_kill(v, cmd, proc, add_args, obj=obj, kill_children=True)
 
     	(cfg_obj, dic) = self.cfg_obj_dic( {'obj':obj} )
     	if cfg_obj and dic.get('run_disable'):
@@ -2082,14 +2260,14 @@ class Final(InsideDesign):
     	if not v:
     		self.stat_label_off(obj)
 
-    def launch_kill_proc2(self, obj, cmd_dic, add_args=None):
+    def launch_kill_proc2(self, obj, cmd_dic, add_args=None, is_rapid_delete=None):
     	v = obj.GetValue()
 
     	(cmd, proc) = cmd_dic[obj]
     	if not cmd:
     		set_val(obj, False)
 
-    	proc = self.launch_kill(v, cmd, proc, add_args, obj=obj)
+    	proc = self.launch_kill(v, cmd, proc, add_args, obj=obj, is_rapid_delete=is_rapid_delete)
 
     	self.cmd_dic[obj] = (cmd, proc); return proc
 
@@ -2100,7 +2278,7 @@ class Final(InsideDesign):
     			return (cmd_dic, obj)
     	return (None, None)
 
-    def launch_kill(self, v, cmd, proc, add_args=None, sigint=None, obj=None, kill_children=None):
+    def launch_kill(self, v, cmd, proc, add_args=None, sigint=None, obj=None, kill_children=None, is_rapid_delete=False):
     	msg = None
     	msg = 'already launched.' if v and proc else msg
     	msg = 'already terminated.' if not v and proc is None else msg
@@ -2138,6 +2316,9 @@ class Final(InsideDesign):
     		flags = self.obj_to_gdic(obj, {}).get('flags', [])
     		if sigint is None:
     			sigint = 'SIGTERM' not in flags
+                if is_rapid_delete:
+                    sigint = False
+                    flags = ["SIGTERM", "kill_children"]
     		if kill_children is None:
     			kill_children = 'kill_children' in flags
     		if kill_children:

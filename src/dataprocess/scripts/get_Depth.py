@@ -46,8 +46,8 @@ class DepthConverter(object):
         curr_image = self.cv_image.copy()
         curr_cloud = self.cloud
 
-        d_mat=np.empty((self.height,self.width))
-        d_mat[:]=np.NaN
+        d_mat = np.empty((self.height,self.width))
+        d_mat[:] = np.NaN
 
         xyz = pc2.read_points(curr_cloud, field_names=('x','y','z'))
 
