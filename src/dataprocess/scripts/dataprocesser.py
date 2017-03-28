@@ -774,6 +774,8 @@ class Final(InsideDesign):
                 self.button_confirm_depth.SetForegroundColour(wx.NullColour)
                 return
             else:
+                if not os.path.exists(output_url):
+                    subprocess.call(['mkdir', '-p', output_url])
                 cmd = "rosrun dataprocess get_Depth.py %s %s %s %s" % (output_url, calib_url, self.image_for_depth, self.pointcloud_for_depth)
                 self.cmd_dic[push] = (cmd, None)
                 self.launch_kill_proc2(push, self.cmd_dic)

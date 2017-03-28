@@ -157,7 +157,7 @@ class DepthConverter(object):
         rospy.Subscriber(image, Image, self.img_loader)
         rospy.Subscriber(pointcloud, PointCloud2, self.pc2_loader)
 
-        r=rospy.Rate(20)
+        r=rospy.Rate(20) # TODO search best parameter  i think 50 is good
         while not rospy.is_shutdown():
             if self.cloud_ready and self.img_ready:
                 self.callback()
