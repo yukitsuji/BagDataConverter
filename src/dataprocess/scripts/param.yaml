@@ -25,7 +25,6 @@ button_input100: {}
 button_input101: {}
 button_input11:
   file: Please Set Calibration File
-button_input2: {}
 button_input4: {}
 calibration_publisher:
   camera_id: ''
@@ -102,7 +101,7 @@ pedestrian_kf:
   use_orb: 0
 play_rosbag_play:
   confirm: 0
-  file: /home/katou01/data/tsuji/log/moriyama/20150324.bag
+  file: /home/katou01/.autoware/autoware-201701171120.bag
   rate: 9.0
   repeat: false
   start: 0

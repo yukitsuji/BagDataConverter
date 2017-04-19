@@ -71,6 +71,7 @@ class DepthConverter(object):
             points_mat[i,1]=y
             points_mat[i,2]=z
 
+        # projection from PointCloud to Depth
         for i in range(0,c_length):
             points_mat[i]=points_mat[i] * self.inv_r_T + self.inv_t_T
 
@@ -78,10 +79,11 @@ class DepthConverter(object):
         tmp_y = points_mat[:,1:2] / points_mat[:,2:3]
 
         r2 = tmp_x * tmp_x + tmp_y * tmp_y
+        # caribration camera
         tmp_d= 1 + self.DIST_COEFF[0] * r2 + self.DIST_COEFF[1] * r2 * r2 + self.DIST_COEFF[4] * r2 * r2 * r2
-
         p_image_x = tmp_x * tmp_d + 2 * self.DIST_COEFF[2] * tmp_x * tmp_y + self.DIST_COEFF[3] * (r2 + 2 * tmp_x * tmp_x)
         p_image_y = tmp_y * tmp_d + self.DIST_COEFF[2] * (r2 + 2 * tmp_y * tmp_y) + 2 * self.DIST_COEFF[3] * tmp_x * tmp_y
+
         p_image_x = self.CAMERA_MAT[0, 0] * p_image_x + self.CAMERA_MAT[0, 2]
         p_image_y = self.CAMERA_MAT[1, 1] * p_image_y + self.CAMERA_MAT[1, 2]
 
@@ -106,6 +108,9 @@ class DepthConverter(object):
         self.index += 1
         h = self.height
         w = self.width
+        # print(np.nanmax(img_mat))
+        # print(np.nanmin(img_mat))
+
 
         d_max=np.nanmax(img_mat)
         #d_max=d_max-3500  #optional. clips max distance so depth sense is more visible
@@ -116,21 +121,29 @@ class DepthConverter(object):
 
         t0 = time.time()
 
-        #Patty's interpolation implementation
+        # Patty's interpolation implementation
         for x in range(0,w,step_size):
            for y in range(0,h,step_size):
                sub_mat=img_mat[y:y+self.sub_mat_size*self.mat_ratio,x:x+self.sub_mat_size].copy()
                mask=np.isnan(sub_mat)
+            #    if np.nanmin(sub_mat) < 0 and np.isnan(sub_mat).all() != np.nan:
+            #        print(sub_mat[~mask])
+            #        print("average")
+            #        print(np.ma.average(np.ma.array(sub_mat,mask=mask)))
                avg=np.ma.average(np.ma.array(sub_mat,mask=mask))
                sub_mat.fill(avg)
                new_mat[y:y+self.sub_mat_size*self.mat_ratio,x:x+self.sub_mat_size]=sub_mat
         t1 = time.time()
         print "Interpolation time: ", t1-t0
+
         new_mat[np.isnan(new_mat)] = self.max_color_val
+
 
         d_img = PIL.Image.fromarray(plt.cm.jet_r(new_mat, bytes=True))
         # rgba_img=PIL.Image.fromarray(curr_image).convert("RGBA")
         # overlay_img = PIL.Image.blend(rgba_img,d_img, 0.5)
+        # print new_mat.max(), new_mat.min()
+        # print plt.cm.jet_r(new_mat, bytes=True).max(), plt.cm.jet_r(new_mat, bytes=True).min()
 
         timestamp = time.time()
         d_img.save(self.save_path + '/depth_img_%08d.jpg' % self.index)
@@ -157,7 +170,7 @@ class DepthConverter(object):
         rospy.Subscriber(image, Image, self.img_loader)
         rospy.Subscriber(pointcloud, PointCloud2, self.pc2_loader)
 
-        r=rospy.Rate(20) # TODO search best parameter  i think 50 is good
+        r=rospy.Rate(100) # TODO search best parameter  i think 50 is good
         while not rospy.is_shutdown():
             if self.cloud_ready and self.img_ready:
                 self.callback()

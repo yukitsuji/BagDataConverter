@@ -17,7 +17,7 @@ class InsideDesign(BaseFrame):
         ####################
         self.panel_rosbag_play = wx.Panel(self.tab_simulation, wx.ID_ANY)
         self.sizer_79_staticbox = wx.StaticBox(self.tab_simulation, wx.ID_ANY, "")
-        self.button_confirm_topics = wx.Button(self.tab_simulation, wx.ID_ANY, _("confirm"))
+        self.button_confirm_topics = wx.Button(self.tab_simulation, wx.ID_ANY, _("Refresh"))
         self.button_rviz = wx.ToggleButton(self.tab_simulation, wx.ID_ANY, _("RViz"))
 
 

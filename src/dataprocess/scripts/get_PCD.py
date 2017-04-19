@@ -29,7 +29,7 @@ def rosbag_data_extract_sample():
         save_path = './sample'
 
     node_name = "get_%s_and_convert_to_PCD_data" % topic
-    rospy.init_node('rosbag_data2_extract_unsync', anonymous=True)
+    rospy.init_node('rosbag_pcd_extract_unsync', anonymous=True)
 
     rospy.Subscriber(topic, PointCloud2, cloud_loader)
     rospy.spin()
