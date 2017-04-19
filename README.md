@@ -17,7 +17,7 @@ sudo apt-get install ros-indigo-velodyne
 
 # OpenCV(python)
 
-# python-pcl
+# pcl
 sudo apt-get update libusb-1.0-0-dev libusb-dev libudev-dev mpi-default-dev openmpi-bin openmpi-common libflann1.8 libflann-dev libeigen3-dev libboost-all-dev libvtk5.10-qt4 libvtk5.10 libvtk5-dev libqhull* libgtest-dev freeglut3-dev pkg-config
 sudo apt-get install libxmu-dev libxi-dev mono-complete qt-sdk openjdk-8-jdk openjdk-8-jre
 git clone https://github.com/PointCloudLibrary/pcl.git
@@ -30,6 +30,9 @@ cmake -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr \
 make
 sudo make install
 
+# python pcl
+git clone https://github.com/strawlab/python-pcl.git
+sudo python setup.py install
 
 cd ~
 git clone https://github.com/yukitsuji/BagDataConverter.git
