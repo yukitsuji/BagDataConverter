@@ -1,0 +1,8 @@
+prefix=/home/katou01/BagDataConverter/devel
+
+Name: dataprocess
+Description: Description of dataprocess
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/katou01/BagDataConverter/devel/lib 
+Requires: 
