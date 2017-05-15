@@ -1,5 +1,5 @@
 #include "get_Depth.hpp"
-// catkin_create_pkg pcd_tutorial std_msgs roscpp pcl_ros pcl_msgs pcl_conversions libpcl-all-dev
+// catkin_create_pkg pcd_tutorial std_msgs roscpp pcl_ros pcl_msgs pcl_conversions libpcl-all-dev cv_bridge
 
 // static cv::Mat CameraExtrinsicMat;
 // static cv::Mat CameraMat;
@@ -42,6 +42,7 @@ void SaveDepth::get_image(const sensor_msgs::Image& msg)
     ROS_ERROR("cv_bridge exeption: %s", e.what());
   }
   image_ = cv_image->image;
+  time_stamp_ = ss.str();
   is_image_ = true;
   // cv::imwrite(save_path_ + ss.str() + ".jpg", cv_image->image);
 }
@@ -81,9 +82,84 @@ void SaveDepth::create_depth(){
   cv::Mat invT_T = invT.t();
 
   cv::Mat depth = cv::Mat::zeros(cv::Size(width, height), CV_8U);
-  depth.at<double>(50, 50) = 1;
-  cv::imwrite(save_path_ + "otameshi" +".jpg", depth);
+  depth.at<int>(50, 50) = 255;
+  // cv::imwrite(save_path_ + "otameshi" +".jpg", depth);
+  cout << "Height " << points_.height << " Width " << points_.height << endl;
+  cout << "Image height " << ImageSize_.width << " Height " << ImageSize_.height << endl;
+  cout << time_stamp_ << endl;
+  cout << points_.row_step << endl;
+  cout << points_.point_step << endl;
+  pcl::PointCloud<pcl::PointXYZI> data_;
+  pcl::fromROSMsg(points_, data_);
+  int count = 0;
+  for (pcl::PointCloud<pcl::PointXYZI>::const_iterator item = data_.begin(); item!=data_.end(); item++){
+    // cout << "x " << item->x << endl;
+    // cout << "y " << item->y << endl;
+    // cout << "z " << item->z << endl;
+    // cout << item->intensity << endl;
+    cv::Mat point(1, 3, CV_64F);
+		point.at<double>(0) = double(item->x);
+		point.at<double>(1) = double(item->y);
+		point.at<double>(2) = double(item->z);
+    double intensity = item->intensity;
+		point = point * invR_T + invT_T;
 
+    if (point.at<double>(2) <= 2.5) {
+      continue;
+    }
+
+    double tmpx = point.at<double>(0) / point.at<double>(2);
+		double tmpy = point.at<double>(1)/point.at<double>(2);
+		double r2 = tmpx * tmpx + tmpy * tmpy;
+		double tmpdist = 1 + DistCoeff_.at<double>(0) * r2
+			+ DistCoeff_.at<double>(1) * r2 * r2
+			+ DistCoeff_.at<double>(4) * r2 * r2 * r2;
+
+		cv::Point2d imagepoint;
+		imagepoint.x = tmpx * tmpdist
+			+ 2 * DistCoeff_.at<double>(2) * tmpx * tmpy
+			+ DistCoeff_.at<double>(3) * (r2 + 2 * tmpx * tmpx);
+		imagepoint.y = tmpy * tmpdist
+			+ DistCoeff_.at<double>(2) * (r2 + 2 * tmpy * tmpy)
+			+ 2 * DistCoeff_.at<double>(3) * tmpx * tmpy;
+		imagepoint.x = CameraMat_.at<double>(0,0) * imagepoint.x + CameraMat_.at<double>(0,2);
+		imagepoint.y = CameraMat_.at<double>(1,1) * imagepoint.y + CameraMat_.at<double>(1,2);
+    int px = int(imagepoint.x + 0.5);
+		int py = int(imagepoint.y + 0.5);
+
+    // cout << "px " << px << endl;
+    // cout << "py " << py << endl;
+
+    if(0 <= px && px < width && 0 <= py && py < height){
+      count = count + 1;
+      if ((depth.at<int>(py, px) == 0) || (depth.at<int>(py, px) > point.at<double>(2))){
+        point.at<double>(2) = point.at<double>(2) * 2;
+        depth.at<int>(py, px) = int(point.at<double>(2));
+        depth.at<int>(py+1, px) = int(point.at<double>(2));
+        depth.at<int>(py+2, px) = int(point.at<double>(2));
+        depth.at<int>(py+1, px+1) = int(point.at<double>(2));
+        depth.at<int>(py+2, px+1) = int(point.at<double>(2));
+        depth.at<int>(py-1, px) = int(point.at<double>(2));
+        depth.at<int>(py-1, px) = int(point.at<double>(2));
+        depth.at<int>(py-2, px-1) = int(point.at<double>(2));
+        depth.at<int>(py-2, px-1) = int(point.at<double>(2));
+
+      }
+      double distance = point.at<double>(2);
+      // cout << distance << endl;
+      // depth.at<double>(50, 50) = 1;
+      // exit(EXIT_FAILURE);
+    }
+
+    // exit(EXIT_FAILURE);
+  }
+  cout << "count " << count << endl;
+  // cv::imwrite(save_path_ + "otameshi2" + time_stamp_ +".jpg", depth);
+  // cv::imwrite(save_path_ + "otameshi3" + time_stamp_ +".jpg", image_);
+  // exit(EXIT_FAILURE);
+  // cout << data_ << endl;
+  // cv::imwrite(save_path_ + "otameshi" +".jpg", depth);
+  cout << "func finish";
   reset_flags();
 }
 
@@ -92,13 +168,14 @@ void SaveDepth::depthConverter(int argc, char* argv[]){
   ros::NodeHandle n;
   ros::Subscriber image_sub = n.subscribe(image_topic_name_, 1, &SaveDepth::get_image, this);
   ros::Subscriber pc2_sub = n.subscribe(pc2_topic_name_, 1, &SaveDepth::get_pcd, this);
-  ros::Rate r(10);
+  ros::Rate r(1);
   while (ros::ok())
   {
-    cout << is_image_ << is_pc2_ << endl;
+    // cout << is_image_ << is_pc2_ << endl;
     if ((is_image_ == true) && (is_pc2_ == true)){
       cout << "Hello3\n";
       create_depth();
+      cout << "finish\n";
     }
     ros::spinOnce();
     r.sleep();
@@ -117,6 +194,8 @@ int main(int argc, char* argv[])
   si.calib_path_ = argv[2];
   si.image_topic_name_ = argv[3];
   si.pc2_topic_name_ = argv[4];
+  si.is_image_ = false;
+  si.is_pc2_ = false;
   si.read_CalibFile();
   si.depthConverter(argc, argv);
   cout << "finish\n";

@@ -32,6 +32,7 @@ public:
   sensor_msgs::PointCloud2 points_;
   // pcl::PointCloud<pcl::PointXYZ> points_;
   cv::Mat image_;
+  string time_stamp_;
   cv::Mat CameraExtrinsicMat_;
   cv::Mat CameraMat_;
   cv::Mat DistCoeff_;

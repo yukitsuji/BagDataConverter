@@ -1,2 +1,0 @@
-dataprocess
--DCATKIN_DEVEL_PREFIX=/home/katou01/BagDataConverter/devel -DCMAKE_INSTALL_PREFIX=/home/katou01/BagDataConverter/install -G Unix Makefiles

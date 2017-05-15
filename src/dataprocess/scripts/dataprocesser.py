@@ -776,7 +776,7 @@ class Final(InsideDesign):
             else:
                 if not os.path.exists(output_url):
                     subprocess.call(['mkdir', '-p', output_url])
-                cmd = "rosrun dataprocess get_Depth.py %s %s %s %s" % (output_url, calib_url, self.image_for_depth, self.pointcloud_for_depth)
+                cmd = "rosrun dataprocess get_Depth %s %s %s %s" % (output_url, calib_url, self.image_for_depth, self.pointcloud_for_depth)
                 self.cmd_dic[push] = (cmd, None)
                 self.launch_kill_proc2(push, self.cmd_dic)
                 self.depth_flag = True
@@ -2344,9 +2344,10 @@ class Final(InsideDesign):
 
     	add_pnls = [
     		self,
-    		self.tree_ctrl_0,
-    		self.tree_ctrl_1,
-    		self.tree_ctrl_data ]
+    		# self.tree_ctrl_0,
+    		# self.tree_ctrl_1,
+    		# self.tree_ctrl_data
+        ]
 
     	for tab in self.all_tabs + add_pnls:
     		tab.SetBackgroundColour(col)
