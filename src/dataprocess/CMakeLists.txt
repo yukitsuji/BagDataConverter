@@ -127,7 +127,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/dataprocess.cpp
+#   scripts/${PROJECT_NAME}/dataprocess.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -138,11 +138,11 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/dataprocess_node.cpp)
+# add_executable(${PROJECT_NAME}_node scripts/dataprocess_node.cpp)
 
-add_executable(get_Image src/get_Image.cpp)
-add_executable(get_PCD src/get_PCD.cpp)
-add_executable(get_Depth src/get_Depth.cpp)
+add_executable(get_Image scripts/get_Image.cpp)
+add_executable(get_PCD scripts/get_PCD.cpp)
+add_executable(get_Depth scripts/get_Depth.cpp)
 target_link_libraries(get_Depth ${catkin_LIBRARIES})
 target_link_libraries(get_PCD ${catkin_LIBRARIES})
 target_link_libraries(get_Image ${catkin_LIBRARIES})

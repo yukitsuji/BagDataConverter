@@ -91,7 +91,7 @@ class DepthConverter(object):
         p_x=p_x.astype(int)
         p_y = p_image_y + 0.5
         p_y=p_y.astype(int)
-        p_z = points_mat[:,2:3]*100 # in cm
+        p_z = points_mat[:,2:3] # in cm
 
         for i_x, i_y, i_z in zip(p_x,p_y,p_z):
             if 0 <= i_x < self.width and 0 <= i_y < self.height:
@@ -108,6 +108,7 @@ class DepthConverter(object):
         self.index += 1
         h = self.height
         w = self.width
+        print img_mat[np.isnan(img_mat)].shape, "nan"
         # print(np.nanmax(img_mat))
         # print(np.nanmin(img_mat))
 
@@ -121,22 +122,24 @@ class DepthConverter(object):
 
         t0 = time.time()
 
-        # Patty's interpolation implementation
-        for x in range(0,w,step_size):
-           for y in range(0,h,step_size):
-               sub_mat=img_mat[y:y+self.sub_mat_size*self.mat_ratio,x:x+self.sub_mat_size].copy()
-               mask=np.isnan(sub_mat)
-            #    if np.nanmin(sub_mat) < 0 and np.isnan(sub_mat).all() != np.nan:
-            #        print(sub_mat[~mask])
-            #        print("average")
-            #        print(np.ma.average(np.ma.array(sub_mat,mask=mask)))
-               avg=np.ma.average(np.ma.array(sub_mat,mask=mask))
-               sub_mat.fill(avg)
-               new_mat[y:y+self.sub_mat_size*self.mat_ratio,x:x+self.sub_mat_size]=sub_mat
-        t1 = time.time()
-        print "Interpolation time: ", t1-t0
+        # # Patty's interpolation implementation
+        # for x in range(0,w,step_size):
+        #    for y in range(0,h,step_size):
+        #        sub_mat=img_mat[y:y+self.sub_mat_size*self.mat_ratio,x:x+self.sub_mat_size].copy()
+        #        mask=np.isnan(sub_mat)
+        #     #    if np.nanmin(sub_mat) < 0 and np.isnan(sub_mat).all() != np.nan:
+        #     #        print(sub_mat[~mask])
+        #     #        print("average")
+        #     #        print(np.ma.average(np.ma.array(sub_mat,mask=mask)))
+        #        avg=np.ma.average(np.ma.array(sub_mat,mask=mask))
+        #        sub_mat.fill(avg)
+        #        new_mat[y:y+self.sub_mat_size*self.mat_ratio,x:x+self.sub_mat_size]=sub_mat
+        # t1 = time.time()
+        # print "Interpolation time: ", t1-t0
 
-        new_mat[np.isnan(new_mat)] = self.max_color_val
+        new_mat[np.isnan(new_mat)] = 0
+
+        print new_mat.max()
 
 
         d_img = PIL.Image.fromarray(plt.cm.jet_r(new_mat, bytes=True))

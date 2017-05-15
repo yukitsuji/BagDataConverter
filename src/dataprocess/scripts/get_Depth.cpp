@@ -8,7 +8,6 @@
 
 static void check_arguments(int argc, char* argv[])
 {
-  cout << "Fuck you" << endl;
   if (argc != 5){
     cout << "Please set arguments like below\n'rosrun dataprocess get_PCD save_dir topic_name'\n";
     exit(EXIT_FAILURE);
@@ -22,8 +21,11 @@ void SaveDepth::get_pcd(const sensor_msgs::PointCloud2::ConstPtr& msg)
   // string file_name = save_path_ + ss.str() + ".pcd";
   // pcl::PointCloud<pcl::PointXYZ> points;
   // pcl::fromROSMsg(*msg, points_);
-  points_ = *msg;
-  is_pc2_ = true;
+  // is_pc2_ = true;
+  if (is_pc2_ == false){
+    points_ = *msg;
+    is_pc2_ = true;
+  }
   // pcl::io::savePCDFileASCII(file_name, points);
 }
 
@@ -41,9 +43,13 @@ void SaveDepth::get_image(const sensor_msgs::Image& msg)
   {
     ROS_ERROR("cv_bridge exeption: %s", e.what());
   }
-  image_ = cv_image->image;
-  time_stamp_ = ss.str();
-  is_image_ = true;
+
+  if (is_image_ == false){
+    image_ = cv_image->image;
+    time_stamp_ = ss.str();
+    is_image_ = true;
+  }
+  // is_image_ = true;
   // cv::imwrite(save_path_ + ss.str() + ".jpg", cv_image->image);
 }
 
@@ -67,9 +73,9 @@ void SaveDepth::reset_flags(){
 
 void SaveDepth::create_depth(){
   // cout << CameraMat_ << endl;
-  cout << CameraExtrinsicMat_ << endl;
+  // cout << CameraExtrinsicMat_ << endl;
   // cout << DistCoeff_ << endl;
-  cout << points_.header << endl;
+  // cout << points_.header << endl;
   // stringstream ss;
   // ss << width << " : " << height << endl;
   // cout << ss.str() << endl;
@@ -81,17 +87,20 @@ void SaveDepth::create_depth(){
   cv::Mat invR_T = invR.t();
   cv::Mat invT_T = invT.t();
 
-  cv::Mat depth = cv::Mat::zeros(cv::Size(width, height), CV_8U);
-  depth.at<int>(50, 50) = 255;
+  // cv::Mat depth = cv::Mat::zeros(cv::Size(width, height), CV_8U);
+  cv::Mat depth = cv::Mat::zeros(cv::Size(width, height), CV_32F);
   // cv::imwrite(save_path_ + "otameshi" +".jpg", depth);
-  cout << "Height " << points_.height << " Width " << points_.height << endl;
-  cout << "Image height " << ImageSize_.width << " Height " << ImageSize_.height << endl;
-  cout << time_stamp_ << endl;
-  cout << points_.row_step << endl;
-  cout << points_.point_step << endl;
+  // cout << "Height " << points_.height << " Width " << points_.height << endl;
+  // cout << "Image height " << ImageSize_.width << " Height " << ImageSize_.height << endl;
+  // cout << time_stamp_ << endl;
+  // cout << points_.row_step << endl;
+  // cout << points_.point_step << endl;
   pcl::PointCloud<pcl::PointXYZI> data_;
   pcl::fromROSMsg(points_, data_);
   int count = 0;
+
+
+
   for (pcl::PointCloud<pcl::PointXYZI>::const_iterator item = data_.begin(); item!=data_.end(); item++){
     // cout << "x " << item->x << endl;
     // cout << "y " << item->y << endl;
@@ -104,9 +113,9 @@ void SaveDepth::create_depth(){
     double intensity = item->intensity;
 		point = point * invR_T + invT_T;
 
-    if (point.at<double>(2) <= 2.5) {
-      continue;
-    }
+    // if (point.at<double>(2) <= 2.5) {
+    //   continue;
+    // }
 
     double tmpx = point.at<double>(0) / point.at<double>(2);
 		double tmpy = point.at<double>(1)/point.at<double>(2);
@@ -132,34 +141,45 @@ void SaveDepth::create_depth(){
 
     if(0 <= px && px < width && 0 <= py && py < height){
       count = count + 1;
-      if ((depth.at<int>(py, px) == 0) || (depth.at<int>(py, px) > point.at<double>(2))){
-        point.at<double>(2) = point.at<double>(2) * 2;
-        depth.at<int>(py, px) = int(point.at<double>(2));
-        depth.at<int>(py+1, px) = int(point.at<double>(2));
-        depth.at<int>(py+2, px) = int(point.at<double>(2));
-        depth.at<int>(py+1, px+1) = int(point.at<double>(2));
-        depth.at<int>(py+2, px+1) = int(point.at<double>(2));
-        depth.at<int>(py-1, px) = int(point.at<double>(2));
-        depth.at<int>(py-1, px) = int(point.at<double>(2));
-        depth.at<int>(py-2, px-1) = int(point.at<double>(2));
-        depth.at<int>(py-2, px-1) = int(point.at<double>(2));
+      if ((depth.at<double>(py, px) == 0) || (depth.at<double>(py, px) > point.at<double>(2))){
+        // point.at<double>(2) = point.at<double>(2) * 2;
+        depth.at<double>(py, px) = point.at<double>(2) / 255;
+        // depth.at<int>(py+1, px) = int(point.at<double>(2));
+        // depth.at<int>(py+2, px) = int(point.at<double>(2));
+        // depth.at<int>(py+1, px+1) = int(point.at<double>(2));
+        // depth.at<int>(py+2, px+1) = int(point.at<double>(2));
+        // depth.at<int>(py-1, px) = int(point.at<double>(2));
+        // depth.at<int>(py-1, px) = int(point.at<double>(2));
+        // depth.at<int>(py-2, px-1) = int(point.at<double>(2));
+        // depth.at<int>(py-2, px-1) = int(point.at<double>(2));
 
       }
-      double distance = point.at<double>(2);
-      // cout << distance << endl;
+      // double distance = point.at<double>(2);
+      // cout << "max " << depth.at<double>(py, px) << endl;
       // depth.at<double>(50, 50) = 1;
       // exit(EXIT_FAILURE);
     }
 
     // exit(EXIT_FAILURE);
   }
-  cout << "count " << count << endl;
-  // cv::imwrite(save_path_ + "otameshi2" + time_stamp_ +".jpg", depth);
-  // cv::imwrite(save_path_ + "otameshi3" + time_stamp_ +".jpg", image_);
+  // cout << "count " << count << endl;
+  double min, max;
+  // cout << "ok1" << endl;
+  cv::minMaxLoc(depth, &min, &max);
+  // cout << "ok2 " << max  << endl;
+  for (int w; w<width; w++){
+    for (int h; h<height; h++){
+      if (depth.at<double>(h, w) != 0){
+        depth.at<double>(h, w) = depth.at<double>(h, w) / max;
+      }
+    }
+  }
+  cv::imwrite(save_path_ + "depth_" + time_stamp_ +".jpg", depth);
+  cv::imwrite(save_path_ + "rgb_" + time_stamp_ +".jpg", image_);
   // exit(EXIT_FAILURE);
   // cout << data_ << endl;
   // cv::imwrite(save_path_ + "otameshi" +".jpg", depth);
-  cout << "func finish";
+  // cout << "func finish\n";
   reset_flags();
 }
 
@@ -168,14 +188,13 @@ void SaveDepth::depthConverter(int argc, char* argv[]){
   ros::NodeHandle n;
   ros::Subscriber image_sub = n.subscribe(image_topic_name_, 1, &SaveDepth::get_image, this);
   ros::Subscriber pc2_sub = n.subscribe(pc2_topic_name_, 1, &SaveDepth::get_pcd, this);
-  ros::Rate r(1);
+  ros::Rate r(100);
   while (ros::ok())
   {
     // cout << is_image_ << is_pc2_ << endl;
     if ((is_image_ == true) && (is_pc2_ == true)){
-      cout << "Hello3\n";
       create_depth();
-      cout << "finish\n";
+      // cout << "finish\n";
     }
     ros::spinOnce();
     r.sleep();
