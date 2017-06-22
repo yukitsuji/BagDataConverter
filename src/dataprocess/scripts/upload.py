@@ -15,14 +15,14 @@ import subprocess
 import time
 
 import caffe
-from caffe.proto import caffe_pb2
-
+from caffe.proto import caffe_pb2 
+"""
 def load_caffemodel(args):
     if args.gpu_id:
         caffe.set_device(int(args.gpu_id))
         caffe.set_mode_gpu()
 
-    net = caffe.Net(args.model,
+    net = caffe.Net(args.deploy_prototxt,
               args.weight,
               caffe.TRAIN)
 
@@ -41,9 +41,9 @@ def load_caffemodel(args):
     #
     # # Forward pass.
     # detections = net.forward()['detection_out']
+"""
 
-
-def create_savedir():
+def create_savedir(args):
     random_value = random.randint(0, 100000000000000000)
     save_dir = "/tmp/image/" + str(random_value)
     p1 = subprocess.check_call(['mkdir', save_dir])
@@ -60,6 +60,7 @@ def create_topiclist(args):
     return topic_list
 
 def create_brake_dataset(args, topic_list, output_file):
+    sys.stderr.write("Create H5 file {}\n".format(output_file))
     image_dataset = None
     brake_dataset = None
     index = 0
@@ -113,7 +114,7 @@ def create_solver(args):
     solver = caffe_pb2.SolverParameter()
 
     # Train Parameters
-    solver.random_seed = 0xCAFFE
+    solver.random_seed = 52 #0xCAFFE
     solver.train_net = args.train_prototxt
     solver.max_iter = 1000 # 100000
     solver.type = "SGD"
@@ -125,7 +126,7 @@ def create_solver(args):
 
     solver.display = 100 # 1000
     solver.snapshot = 500
-    solver.snapshot_prefix = "yukitsuji"
+    solver.snapshot_prefix = args.snapshot
 
     if args.device_id:
         solver.device_id = int(args.device_id)
@@ -141,12 +142,13 @@ def create_solver(args):
     with open(args.solver_prototxt, 'w') as f:
         f.write(str(solver))
 
+"""
 def deploy_network():
     if args.gpu_id:
         caffe.set_device(args.gpu_id)
         caffe.set_mode_gpu()
 
-    net = caffe.Net(args.model,
+    net = caffe.Net(args.deploy_prototxt,
               args.weight,
               caffe.TRAIN)
 
@@ -159,13 +161,22 @@ def deploy_network():
     net.blobs['data'].reshape(1,3,image_resize,image_resize)
 
     image = caffe.io.load_image('examples/images/fish-bike.jpg')
+"""
 
 def create_jobfile(args):
     job_file = args.save_dir + "/exe.sh"
     with open(job_file, "w") as f:
         f.write("cd {}\n".format("$HOME/caffe"))
-        f.write("./build/tools/caffe train \\\n")
-        f.write("--solver='{}' \\\n".format(args.solver_prototxt))
+        if args.mode == "train":
+            f.write("./build/tools/caffe train \\\n")
+            f.write("--solver='{}' \\\n".format(args.solver_prototxt))
+        else:
+            f.write("./build/tools/caffe test  \\\n")
+            f.write("--model='{}' \\\n".format(args.deploy_prototxt))
+
+        if args.weight:
+            f.write("--weights='{}' \\\n".format(args.weight))
+
         f.write("--gpu {}\n".format(args.gpu_id))
 
     os.chmod(job_file, stat.S_IRWXU)
@@ -173,17 +184,34 @@ def create_jobfile(args):
 
 def train_caffemodel(args):
     # create_solver(args)
-    create_solver(args)
+    job_file = create_jobfile(args)
+    subprocess.call(job_file, shell=True)
+
+def deploy_caffemodel(args):
     job_file = create_jobfile(args)
     subprocess.call(job_file, shell=True)
 
 def check_arguments(args):
-    if args.model is None:
-        sys.stderr.write("Please assign Model Prototxt")
+    if not (args.theme == "brake" or args.theme == "ssd"):
+        sys.stderr.write("Please selece theme from 'brake' and 'ssd'\n")
+        sys.exit()
+    if args.solver_prototxt is None:
+        sys.stderr.write("Please assign solver Prototxt\n")
         sys.exit()
     if not (args.mode == "train" or args.mode == "test"):
-        sys.stderr.write("Mode is 'train' or 'test'")
+        sys.stderr.write("Mode is 'train' or 'test'\n")
         sys.exit()
+    if args.mode == "train":
+        if args.solver_prototxt is None:
+            sys.stderr.write("Please set solver prototxt when training\n")
+            sys.exit()
+    if args.mode == "test":
+        if args.deploy_prototxt is None:         
+            sys.stderr.write("Please set deploy prototxt when testing\n")
+            sys.exit()
+        if args.weight is None:
+            sys.stderr.write("Please set weight when testing\n")
+            sys.exit()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='upload bagfile and convert to h5 file')
@@ -200,18 +228,22 @@ if __name__ == '__main__':
     parser.add_argument("--train_prototxt", help="prototxt of training model", default=None)
     parser.add_argument("--weight", help="weight of model network", default=None)
     parser.add_argument("--solver_prototxt", help="solver prototxt", default=None)
+    parser.add_argument("--snapshot", help="name of snapshot", default="brake")
 
     parser.add_argument("--base_lr", help="base learning rate", default=0.001)
-    parser.add_argument("--save_dir", help="save directory", default=None)
+    parser.add_argument("--save_dir", help="save directory", default="./")
     parser.add_argument("--mode", help="Network mode", default="train")
+
+    parser.add_argument("--create", help="Create h5 file", default=True)
     args = parser.parse_args()
 
     check_arguments(args)
 
-    save_dir = create_savedir()
+    save_dir = args.save_dir #create_savedir(args.save_dir)
     topic_list = create_topiclist(args)
     if args.theme == "brake":
-        create_brake_dataset(args, topic_list, args.output_file)
+        if args.create == True:
+            create_brake_dataset(args, topic_list, args.output_file)
         if args.mode == "train":
             train_caffemodel(args)
 
